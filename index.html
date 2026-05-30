@@ -316,7 +316,7 @@ function renderTable(){
 }
 
 function renderStats(){
-  function set(id,sub,val,subTxt){
+  function setPnl(id,sub,val,subTxt){
     const e=document.getElementById(id);
     if(val!==null&&val!==undefined){
       e.textContent=(val>=0?'+':'')+Number(val).toFixed(2)+' USDC';
@@ -324,8 +324,8 @@ function renderStats(){
     }else{e.textContent='&#8212;';e.className='sval neu';}
     if(sub&&subTxt)document.getElementById(sub).textContent=subTxt;
   }
-  set('sp','sps',S.total_pnl,'Trades: '+(S.trade_pnl>=0?'+':'')+Number(S.trade_pnl||0).toFixed(2)+' | Funding: '+(S.funding_total>=0?'+':'')+Number(S.funding_total||0).toFixed(2));
-  set('sd','sds',S.today_pnl,(S.today_trades||0)+' cierres hoy');
+  setPnl('sp','sps',S.total_pnl,'Trades: '+(S.trade_pnl>=0?'+':'')+Number(S.trade_pnl||0).toFixed(2)+' | Funding: '+(S.funding_total>=0?'+':'')+Number(S.funding_total||0).toFixed(2));
+  setPnl('sd','sds',S.today_pnl,(S.today_trades||0)+' cierres hoy');
   const fe=document.getElementById('sf');
   const fv=S.funding_total;
   if(fv!==undefined){fe.textContent=(fv>=0?'+':'')+Number(fv).toFixed(4)+' USDC';fe.className='sval '+(fv>0?'pos':fv<0?'neg':'neu');}
@@ -333,6 +333,38 @@ function renderStats(){
   document.getElementById('sw').textContent=wr!==undefined?wr+'%':'&#8212;';
   document.getElementById('sw').className='sval '+(wr>=50?'pos':wr!==undefined&&wr<50?'neg':'');
   document.getElementById('sws').textContent=wr!==undefined?(S.wins||0)+' ganad. / '+(S.losses||0)+' perd.':'&#8212;';
+
+  // % rentabilidad sobre volumen total traded
+  const closes=T.filter(t=>t.tradeType==='close');
+  const vol=closes.reduce((a,t)=>a+(t.price||0)*(t.size||0),0);
+  const pct=vol>0&&S.total_pnl!==undefined?((S.total_pnl/vol)*100):null;
+  const ge=document.getElementById('sg');
+  if(pct!==null){ge.textContent=(pct>=0?'+':'')+pct.toFixed(4)+'%';ge.className='sval '+(pct>0?'pos':pct<0?'neg':'neu');document.getElementById('sgs').textContent='Vol: $'+vol.toLocaleString('es-ES',{maximumFractionDigits:0});}
+  else{ge.textContent='&#8212;';ge.className='sval neu';}
+
+  // 7 day and 30 day PnL from local trades
+  const now=Date.now();
+  const d7=now-7*86400000;
+  const d30=now-30*86400000;
+  const pnl7=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl)&&pts(t.ts)>=d7).reduce((a,t)=>a+t.pnl,0);
+  const pnl30=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl)&&pts(t.ts)>=d30).reduce((a,t)=>a+t.pnl,0);
+  setPnl('s7','s7s',pnl7,'ultimos 7 dias');
+  setPnl('s30','s30s',pnl30,'ultimos 30 dias');
+
+  // Best day
+  const dayMap={};
+  T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl)).forEach(t=>{
+    const k=pts(t.ts).toISOString().slice(0,10);
+    if(!dayMap[k])dayMap[k]=0;
+    dayMap[k]+=t.pnl;
+  });
+  const days=Object.values(dayMap);
+  if(days.length){
+    const best=Math.max(...days);
+    const bestDay=Object.keys(dayMap).find(k=>dayMap[k]===best);
+    document.getElementById('sbd').textContent='+'+(best).toFixed(2)+' U';
+    document.getElementById('sbds').textContent=bestDay||'&#8212;';
+  }
 }
 
 function renderPositions(){
@@ -357,7 +389,7 @@ function renderPositions(){
 function renderByCoin(){
   const by=S.by_symbol||[];
   if(!by.length){document.getElementById('coin-grid').innerHTML='<p style="color:var(--text3);">Sin datos.</p>';document.getElementById('coin-table').innerHTML='';return;}
-  const sorted=[...by].sort((a,b)=>b.trades-a.trades);
+  const sorted=[...by].sort((a,b)=>b.pnl-a.pnl);
   document.getElementById('coin-grid').innerHTML=sorted.map(c=>{
     const pc=c.pnl>0?'pos':c.pnl<0?'neg':'neu';
     const wr=c.trades>0?Math.round((c.wins||0)/c.trades*100):0;
