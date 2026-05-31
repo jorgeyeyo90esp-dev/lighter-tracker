@@ -665,12 +665,13 @@ function ltFiltered(){
   const side=document.getElementById('lt-fside').value;
   const type=document.getElementById('lt-ftype').value;
   const days=parseInt(document.getElementById('lt-fdays').value)||0;
+  const cutoff=days===1?madridMidnight():days>1?Date.now()-days*86400000:0;
   return LT_T.filter(t=>{
     if(sym&&!(t.symbol||'').toLowerCase().includes(sym))return false;
     if(side&&t.side!==side)return false;
     if(type==='close'&&t.tradeType!=='close')return false;
     if(type==='open'&&t.tradeType!=='open')return false;
-    if(days>0){const d=pts(t.ts);const c=new Date();c.setDate(c.getDate()-days);if(d<c)return false;}
+    if(cutoff>0&&parseInt(t.ts)<cutoff)return false;
     return true;
   });
 }
@@ -766,12 +767,13 @@ function hlFiltered(){
   const side=document.getElementById('hl-fside').value;
   const type=document.getElementById('hl-ftype').value;
   const days=parseInt(document.getElementById('hl-fdays').value)||0;
+  const cutoff=days===1?madridMidnight():days>1?Date.now()-days*86400000:0;
   return HL_T.filter(t=>{
     if(sym&&!(t.symbol||'').toLowerCase().includes(sym))return false;
     if(side&&t.side!==side)return false;
     if(type==='close'&&t.tradeType!=='close')return false;
     if(type==='open'&&t.tradeType!=='open')return false;
-    if(days>0){const d=pts(t.ts);const c=new Date();c.setDate(c.getDate()-days);if(d<c)return false;}
+    if(cutoff>0&&parseInt(t.ts)<cutoff)return false;
     return true;
   });
 }
@@ -902,10 +904,11 @@ function atFiltered(){
   const sym=document.getElementById('at-fsym').value.toLowerCase();
   const side=document.getElementById('at-fside').value;
   const days=parseInt(document.getElementById('at-fdays').value)||0;
+  const cutoff=days===1?madridMidnight():days>1?Date.now()-days*86400000:0;
   return AT_T.filter(t=>{
     if(sym&&!(t.symbol||'').toLowerCase().includes(sym))return false;
     if(side&&t.side!==side)return false;
-    if(days>0){const now=Date.now();const cutoff=days===1?madridMidnight():now-(days-1)*86400000-madridMidnight()%86400000+madridMidnight();const ts=typeof t.ts==='number'?t.ts:parseInt(t.ts);if(days===1){if(ts<madridMidnight())return false;}else{if(ts<now-days*86400000)return false;}}}
+    if(cutoff>0&&parseInt(t.ts)<cutoff)return false;
     return true;
   });
 }
