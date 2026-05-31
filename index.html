@@ -181,6 +181,7 @@ tbody tr:hover td{background:var(--bg2);}
         <div class="stat"><div class="slbl">Capital total</div><div class="sval neu" id="d-capital">&#8212;</div><div class="ssub" id="d-capital-sub">valor de ambas cuentas</div></div>
         <div class="stat"><div class="slbl">% Rentabilidad</div><div class="sval neu" id="d-pct">&#8212;</div><div class="ssub" id="d-pct-sub">P&amp;L / capital total</div></div>
         <div class="stat"><div class="slbl">P&amp;L Hoy</div><div class="sval neu" id="d-today">&#8212;</div><div class="ssub" id="d-today-sub">ambos exchanges</div></div>
+        <div class="stat"><div class="slbl">% Hoy / capital</div><div class="sval neu" id="d-today-pct">&#8212;</div><div class="ssub" id="d-today-pct-sub">P&amp;L hoy / capital total</div></div>
       </div>
 
       <!-- Per-exchange cards -->
@@ -199,6 +200,7 @@ tbody tr:hover td{background:var(--bg2);}
             <div class="exch-stat"><div class="exch-stat-lbl">Win rate</div><div class="exch-stat-val" id="lt-wr">&#8212;</div></div>
             <div class="exch-stat"><div class="exch-stat-lbl">Trades</div><div class="exch-stat-val" id="lt-trades">&#8212;</div></div>
             <div class="exch-stat"><div class="exch-stat-lbl">P&amp;L hoy</div><div class="exch-stat-val" id="lt-today">&#8212;</div></div>
+            <div class="exch-stat" style="grid-column:span 2;"><div class="exch-stat-lbl">% hoy / cuenta</div><div class="exch-stat-val" id="lt-today-pct">&#8212;</div></div>
           </div>
         </div>
         <!-- Hyperliquid card -->
@@ -231,6 +233,7 @@ tbody tr:hover td{background:var(--bg2);}
             <div class="exch-stat"><div class="exch-stat-lbl">Win rate</div><div class="exch-stat-val" id="aster-wr">&#8212;</div></div>
             <div class="exch-stat"><div class="exch-stat-lbl">Trades</div><div class="exch-stat-val" id="aster-trades-count">&#8212;</div></div>
             <div class="exch-stat"><div class="exch-stat-lbl">P&amp;L hoy</div><div class="exch-stat-val" id="aster-today">&#8212;</div></div>
+            <div class="exch-stat" style="grid-column:span 2;"><div class="exch-stat-lbl">% hoy / cuenta</div><div class="exch-stat-val" id="aster-today-pct">&#8212;</div></div>
           </div>
         </div>
       </div>
@@ -528,6 +531,8 @@ function renderDashboard(){
   if(totalBal>0){const pct=(totalPnl/totalBal)*100;pg.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%';pg.className='sval '+(pct>0?'pos':pct<0?'neg':'neu');document.getElementById('d-pct-sub').textContent='sobre $'+totalBal.toFixed(2);}
   setVal('d-today',totalToday);
   document.getElementById('d-today-sub').textContent='LT: '+(LT.today_pnl>=0?'+':'')+Number(LT.today_pnl||0).toFixed(2)+' | HL: '+(HLS.today_pnl>=0?'+':'')+Number(HLS.today_pnl||0).toFixed(2)+' | AT: '+(AT_S.today_pnl>=0?'+':'')+Number(AT_S.today_pnl||0).toFixed(2);
+  const dtp=document.getElementById('d-today-pct');
+  if(dtp&&totalBal>0){const pct=(totalToday/totalBal)*100;dtp.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%';dtp.className='sval '+(pct>0?'pos':pct<0?'neg':'neu');document.getElementById('d-today-pct-sub').textContent='Hoy: '+(totalToday>=0?'+':'')+totalToday.toFixed(2)+' / $'+totalBal.toFixed(2);}
 
   // Lighter card
   const lpe=document.getElementById('lt-pnl');
@@ -539,6 +544,7 @@ function renderDashboard(){
   document.getElementById('lt-trades').textContent=LT.closed_trades||0;
   document.getElementById('lt-today').textContent=(LT.today_pnl>=0?'+':'')+Number(LT.today_pnl||0).toFixed(2)+' U';
   document.getElementById('lt-conn-lbl').textContent=LT.initial_load_done?(LT.connected?'En vivo':'OK'):'Cargando...';
+  const ltTpct=document.getElementById('lt-today-pct');if(ltTpct&&ltBal>0&&LT.today_pnl!==undefined){const p=(LT.today_pnl/ltBal)*100;ltTpct.textContent=(p>=0?'+':'')+p.toFixed(2)+'%';ltTpct.className='exch-stat-val '+(p>0?'pos':p<0?'neg':'neu');}else if(ltTpct)ltTpct.textContent='&#8212;';
 
   // Aster dashboard card
   const ape=document.getElementById('aster-pnl');
@@ -549,6 +555,7 @@ function renderDashboard(){
   const atce=document.getElementById('aster-trades-count');if(atce)atce.textContent=AT_S.closed_trades||0;
   const ato=document.getElementById('aster-today');if(ato)ato.textContent=(AT_S.today_pnl>=0?'+':'')+Number(AT_S.today_pnl||0).toFixed(2)+' U';
   const acl=document.getElementById('aster-conn-lbl');if(acl)acl.textContent=AT_S.initial_load_done?'OK':'Cargando...';
+  const atTpct=document.getElementById('aster-today-pct');if(atTpct&&atBal>0&&AT_S.today_pnl!==undefined){const p=(AT_S.today_pnl/atBal)*100;atTpct.textContent=(p>=0?'+':'')+p.toFixed(2)+'%';atTpct.className='exch-stat-val '+(p>0?'pos':p<0?'neg':'neu');}else if(atTpct)atTpct.textContent='&#8212;';
 
   // HL card
   const hpe=document.getElementById('hl-pnl');
@@ -560,6 +567,7 @@ function renderDashboard(){
   document.getElementById('hl-trades').textContent=HLS.closed_trades||0;
   document.getElementById('hl-today').textContent=(HLS.today_pnl>=0?'+':'')+Number(HLS.today_pnl||0).toFixed(2)+' U';
   document.getElementById('hl-conn-lbl').textContent=HLS.initial_load_done?'OK':'Cargando...';
+  const hlTpct=document.getElementById('hl-today-pct');if(hlTpct&&hlBal>0&&HLS.today_pnl!==undefined){const p=(HLS.today_pnl/hlBal)*100;hlTpct.textContent=(p>=0?'+':'')+p.toFixed(2)+'%';hlTpct.className='exch-stat-val '+(p>0?'pos':p<0?'neg':'neu');}else if(hlTpct)hlTpct.textContent='&#8212;';
 
   // Combined chart
   const ltCloses=[...LT_T].filter(t=>t.tradeType==='close'&&t.pnl!==null).sort((a,b)=>pts(a.ts)-pts(b.ts));
@@ -589,6 +597,8 @@ function setPnl(id,sub,val,subTxt){
 function ltRenderStats(){
   setPnl('lt2-sp','lt2-sps',LT.total_pnl,'Trades: '+(LT.trade_pnl>=0?'+':'')+Number(LT.trade_pnl||0).toFixed(2)+' | Funding: '+(LT.funding_total>=0?'+':'')+Number(LT.funding_total||0).toFixed(2));
   setPnl('lt2-sd','lt2-sds',LT.today_pnl,(LT.today_trades||0)+' cierres hoy');
+  const ltBal2=LT.account_balance;const lt2dpct=document.getElementById('lt2-sg');
+  if(lt2dpct&&ltBal2&&ltBal2>0&&LT.today_pnl!==undefined){const tp=(LT.today_pnl/ltBal2)*100;const ep=document.getElementById('lt2-sgs');if(ep)ep.textContent='Hoy: '+(tp>=0?'+':'')+tp.toFixed(2)+'% | Capital: $'+Number(ltBal2).toFixed(2);}
   const fe=document.getElementById('lt2-sf');if(fe&&LT.funding_total!==undefined){fe.textContent=(LT.funding_total>=0?'+':'')+Number(LT.funding_total).toFixed(4)+' USDC';fe.className='sval '+(LT.funding_total>0?'pos':LT.funding_total<0?'neg':'neu');}
   const wr=LT.win_rate;const we=document.getElementById('lt2-sw');if(we){we.textContent=wr!==undefined?wr+'%':'&#8212;';we.className='sval '+(wr>=50?'pos':wr!==undefined&&wr<50?'neg':'');}
   const wse=document.getElementById('lt2-sws');if(wse)wse.textContent=wr!==undefined?(LT.wins||0)+' ganad. / '+(LT.losses||0)+' perd.':'&#8212;';
@@ -689,6 +699,8 @@ function ltRenderCharts(){renderLineCharts(LT_T,'lt-pnlChart','lt-distChart','lt
 function hlRenderStats(){
   setPnl('hl2-sp','hl2-sps',HLS.total_pnl,'Trades: '+(HLS.trade_pnl>=0?'+':'')+Number(HLS.trade_pnl||0).toFixed(2)+' | Funding: '+(HLS.funding_total>=0?'+':'')+Number(HLS.funding_total||0).toFixed(2));
   setPnl('hl2-sd','hl2-sds',HLS.today_pnl,(HLS.today_trades||0)+' cierres hoy');
+  const hlBal2=HLS.account_balance;const hl2dpct=document.getElementById('hl2-sg');
+  if(hl2dpct&&hlBal2&&hlBal2>0&&HLS.today_pnl!==undefined){const tp=(HLS.today_pnl/hlBal2)*100;const ep=document.getElementById('hl2-sgs');if(ep)ep.textContent='Hoy: '+(tp>=0?'+':'')+tp.toFixed(2)+'% | Capital: $'+Number(hlBal2).toFixed(2);}
   const fe=document.getElementById('hl2-sf');if(fe&&HLS.funding_total!==undefined){fe.textContent=(HLS.funding_total>=0?'+':'')+Number(HLS.funding_total).toFixed(4)+' USDC';fe.className='sval '+(HLS.funding_total>0?'pos':HLS.funding_total<0?'neg':'neu');}
   const wr=HLS.win_rate;const we=document.getElementById('hl2-sw');if(we){we.textContent=wr!==undefined?wr+'%':'&#8212;';we.className='sval '+(wr>=50?'pos':wr!==undefined&&wr<50?'neg':'');}
   const wse=document.getElementById('hl2-sws');if(wse)wse.textContent=wr!==undefined?(HLS.wins||0)+' ganad. / '+(HLS.losses||0)+' perd.':'&#8212;';
@@ -821,6 +833,8 @@ async function fetchAster(){
 function atRenderStats(){
   setPnl('at2-sp','at2-sps',AT_S.total_pnl,'Trades: '+(AT_S.trade_pnl>=0?'+':'')+Number(AT_S.trade_pnl||0).toFixed(2)+' | Funding: '+(AT_S.funding_total>=0?'+':'')+Number(AT_S.funding_total||0).toFixed(2));
   setPnl('at2-sd','at2-sds',AT_S.today_pnl,(AT_S.today_trades||0)+' cierres hoy');
+  const atBal2=AT_S.account_balance;const at2dpct=document.getElementById('at2-sg');
+  if(at2dpct&&atBal2&&atBal2>0&&AT_S.today_pnl!==undefined){const tp=(AT_S.today_pnl/atBal2)*100;const ep=document.getElementById('at2-sgs');if(ep)ep.textContent='Hoy: '+(tp>=0?'+':'')+tp.toFixed(2)+'% | Capital: $'+Number(atBal2).toFixed(2);}
   const fe=document.getElementById('at2-sf');
   if(fe&&AT_S.funding_total!==undefined){fe.textContent=(AT_S.funding_total>=0?'+':'')+Number(AT_S.funding_total).toFixed(4)+' USDC';fe.className='sval '+(AT_S.funding_total>0?'pos':AT_S.funding_total<0?'neg':'neu');}
   const wr=AT_S.win_rate;const we=document.getElementById('at2-sw');
