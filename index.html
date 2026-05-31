@@ -451,6 +451,36 @@ const PAGES={dashboard:'Dashboard',lighter:'Lighter',hl:'Hyperliquid',aster:'Ast
 function getUrl(){return(localStorage.getItem('lt_url')||'').replace(/\/$/,'');}
 function pts(ts){return new Date(typeof ts==='number'?ts:parseInt(ts));}
 
+// Timezone helpers - Europe/Madrid
+function localDateStr(ts){
+  const d=pts(ts);
+  return d.toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'}); // YYYY-MM-DD
+}
+function todayStartMs(){
+  const now=new Date();
+  const todayStr=now.toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'});
+  // Parse YYYY-MM-DD as Madrid midnight in UTC ms
+  const [y,mo,d]=todayStr.split('-').map(Number);
+  // Use Intl to get the offset
+  const midnight=new Date(Date.UTC(y,mo-1,d,0,0,0));
+  const fmt=new Intl.DateTimeFormat('en',{timeZone:'Europe/Madrid',hour:'numeric',hour12:false,timeZoneName:'short'});
+  // Simpler: just use local date string comparison
+  return midnight.getTime();
+}
+function madridMidnight(){
+  // Returns ms of start of today in Europe/Madrid
+  const s=new Date().toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'});
+  const [y,mo,d]=s.split('-').map(Number);
+  // Find UTC ms for this date at 00:00 Madrid time
+  // Try both offsets and pick the one whose Madrid date matches
+  for(const off of [60,120]){
+    const t=Date.UTC(y,mo-1,d,0,0,0)-(off*60000);
+    const check=new Date(t).toLocaleDateString('sv-SE',{timeZone:'Europe/Madrid'});
+    if(check===s)return t;
+  }
+  return Date.UTC(y,mo-1,d,0,0,0)-120*60000;
+}
+
 // ── Navigation ──
 function goPage(p){
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
@@ -591,8 +621,8 @@ function renderDashboard(){
   const ltCloses=[...LT_T].filter(t=>t.tradeType==='close'&&t.pnl!==null).sort((a,b)=>pts(a.ts)-pts(b.ts));
   const hlCloses=[...HL_T].filter(t=>t.tradeType==='close'&&t.pnl!==null).sort((a,b)=>pts(a.ts)-pts(b.ts));
   let ltCum=0,hlCum=0;
-  const ltData=ltCloses.map(t=>{ltCum+=t.pnl;return{x:pts(t.ts).toISOString().slice(0,10),y:parseFloat(ltCum.toFixed(4))};});
-  const hlData=hlCloses.map(t=>{hlCum+=t.pnl;return{x:pts(t.ts).toISOString().slice(0,10),y:parseFloat(hlCum.toFixed(4))};});
+  const ltData=ltCloses.map(t=>{ltCum+=t.pnl;return{x:localDateStr(t.ts),y:parseFloat(ltCum.toFixed(4))};});
+  const hlData=hlCloses.map(t=>{hlCum+=t.pnl;return{x:localDateStr(t.ts),y:parseFloat(hlCum.toFixed(4))};});
   if(charts.dash)charts.dash.destroy();
   charts.dash=new Chart(document.getElementById('dash-chart').getContext('2d'),{
     type:'line',
@@ -622,7 +652,7 @@ function ltRenderStats(){
   const wse=document.getElementById('lt2-sws');if(wse)wse.textContent=wr!==undefined?(LT.wins||0)+' ganad. / '+(LT.losses||0)+' perd.':'&#8212;';
   const bal=LT.account_balance;const ge=document.getElementById('lt2-sg');
   if(bal&&bal>0&&LT.total_pnl!==undefined){const pct=(LT.total_pnl/bal)*100;ge.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%';ge.className='sval '+(pct>0?'pos':pct<0?'neg':'neu');const gs=document.getElementById('lt2-sgs');if(gs)gs.textContent='Capital: $'+Number(bal).toFixed(2);}
-  const now=Date.now();
+  const now=Date.now();const todayMs=madridMidnight();
   const p7=LT_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&pts(t.ts)>=(now-7*86400000)).reduce((a,t)=>a+t.pnl,0);
   const p30=LT_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&pts(t.ts)>=(now-30*86400000)).reduce((a,t)=>a+t.pnl,0);
   setPnl('lt2-s7','lt2-s7s',p7,'ultimos 7 dias');setPnl('lt2-s30','lt2-s30s',p30,'ultimos 30 dias');
@@ -690,7 +720,7 @@ function ltRenderByCoin(){renderByCoin(LT.by_symbol,'lt-coin-grid','lt-coin-tabl
 function renderDailyView(trades,chartId,bodyId,chartRef){
   const closes=trades.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
   if(!closes.length){document.getElementById(bodyId).innerHTML='<tr><td colspan="6" class="empty">Sin datos.</td></tr>';return;}
-  const map={};closes.forEach(t=>{const k=pts(t.ts).toISOString().slice(0,10);if(!map[k])map[k]={key:k,pnl:0,count:0,wins:0,pnls:[]};const m=map[k];m.count++;m.pnl+=t.pnl;m.pnls.push(t.pnl);if(t.pnl>0)m.wins++;});
+  const map={};closes.forEach(t=>{const k=localDateStr(t.ts);if(!map[k])map[k]={key:k,pnl:0,count:0,wins:0,pnls:[]};const m=map[k];m.count++;m.pnl+=t.pnl;m.pnls.push(t.pnl);if(t.pnl>0)m.wins++;});
   const days=Object.values(map).sort((a,b)=>b.key.localeCompare(a.key));
   const last30=[...days].sort((a,b)=>a.key.localeCompare(b.key)).slice(-30);
   if(charts[chartRef])charts[chartRef].destroy();
@@ -875,7 +905,7 @@ function atFiltered(){
   return AT_T.filter(t=>{
     if(sym&&!(t.symbol||'').toLowerCase().includes(sym))return false;
     if(side&&t.side!==side)return false;
-    if(days>0){const d=pts(t.ts);const cutoff=new Date();cutoff.setDate(cutoff.getDate()-days);if(d<cutoff)return false;}
+    if(days>0){const now=Date.now();const cutoff=days===1?madridMidnight():now-(days-1)*86400000-madridMidnight()%86400000+madridMidnight();const ts=typeof t.ts==='number'?t.ts:parseInt(t.ts);if(days===1){if(ts<madridMidnight())return false;}else{if(ts<now-days*86400000)return false;}}}
     return true;
   });
 }
