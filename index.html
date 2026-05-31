@@ -236,7 +236,7 @@ tbody tr:hover td{background:var(--bg2);}
         <div class="stat"><div class="slbl">% Rentabilidad</div><div class="sval neu" id="lt2-sg">&#8212;</div><div class="ssub" id="lt2-sgs">sobre capital</div></div>
         <div class="stat"><div class="slbl">P&amp;L 7 dias</div><div class="sval neu" id="lt2-s7">&#8212;</div><div class="ssub" id="lt2-s7s">&#8212;</div></div>
         <div class="stat"><div class="slbl">P&amp;L 30 dias</div><div class="sval neu" id="lt2-s30">&#8212;</div><div class="ssub" id="lt2-s30s">&#8212;</div></div>
-        <div class="stat"><div class="slbl">Mejor dia</div><div class="sval pos" id="lt2-sbd">&#8212;</div><div class="ssub" id="lt2-sbds">&#8212;</div></div>
+        <div class="stat"><div class="slbl">Capital cuenta</div><div class="sval neu" id="lt2-bal">&#8212;</div><div class="ssub" id="lt2-bals">account value</div></div>
       </div>
       <div class="inner-tabs">
         <button class="itab active" id="ltab-history" onclick="ltShowTab('history')"><i class="ti ti-list"></i> Historial</button>
@@ -498,9 +498,8 @@ function ltRenderStats(){
   const p7=LT_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&pts(t.ts)>=(now-7*86400000)).reduce((a,t)=>a+t.pnl,0);
   const p30=LT_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&pts(t.ts)>=(now-30*86400000)).reduce((a,t)=>a+t.pnl,0);
   setPnl('lt2-s7','lt2-s7s',p7,'ultimos 7 dias');setPnl('lt2-s30','lt2-s30s',p30,'ultimos 30 dias');
-  const dm={};LT_T.filter(t=>t.tradeType==='close'&&t.pnl!==null).forEach(t=>{const k=pts(t.ts).toISOString().slice(0,10);if(!dm[k])dm[k]=0;dm[k]+=t.pnl;});
-  const dv=Object.values(dm);
-  if(dv.length){const best=Math.max(...dv);const bd=document.getElementById('lt2-sbd');if(bd){bd.textContent='+'+(best).toFixed(2)+' U';bd.className='sval pos';}const bds=document.getElementById('lt2-sbds');if(bds)bds.textContent=Object.keys(dm).find(k=>dm[k]===best)||'';}
+  const ltBalEl=document.getElementById('lt2-bal');
+  if(ltBalEl&&LT.account_balance){ltBalEl.textContent='$'+Number(LT.account_balance).toFixed(2)+' USDC';ltBalEl.className='sval neu';}
 }
 
 function ltFiltered(){
