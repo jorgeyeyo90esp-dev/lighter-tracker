@@ -375,6 +375,24 @@ tbody tr:hover td{background:var(--bg2);}
         <div class="stat"><div class="slbl">P&amp;L 30 dias</div><div class="sval neu" id="at2-s30">&#8212;</div><div class="ssub" id="at2-s30s">&#8212;</div></div>
         <div class="stat"><div class="slbl">Capital cuenta</div><div class="sval neu" id="at2-bal">&#8212;</div><div class="ssub">account value</div></div>
       </div>
+      <!-- Aster CSV upload -->
+      <div class="card" style="margin-bottom:1rem;">
+        <div class="cb" style="padding:12px 16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div>
+              <p style="font-size:13px;font-weight:600;margin-bottom:2px;">Historial CSV de Aster</p>
+              <p style="font-size:12px;color:var(--text3);">Aster → Historial de transacciones → icono exportar (arriba a la derecha)</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="aster-csv-status" style="font-size:12px;color:var(--text3);">Sin datos</span>
+              <button class="btn bg" onclick="document.getElementById('aster-csv-input').click()" style="font-size:12px;padding:5px 10px;"><i class="ti ti-upload"></i> Subir CSV</button>
+              <button class="btn bg" onclick="asterClearCsv()" style="font-size:12px;padding:5px 10px;color:var(--red);"><i class="ti ti-trash"></i></button>
+              <input type="file" id="aster-csv-input" accept=".csv" style="display:none" onchange="asterUploadCsv(event)">
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="inner-tabs">
         <button class="itab active" id="atab-history" onclick="atShowTab('history')"><i class="ti ti-list"></i> Historial</button>
         <button class="itab" id="atab-positions" onclick="atShowTab('positions')"><i class="ti ti-chart-area"></i> Posiciones</button>
@@ -885,6 +903,50 @@ function atRenderPositions(){
     +'<div><div style="color:var(--text3);">Liq.</div><div>'+(p.liquidation_price?'$'+Number(p.liquidation_price).toFixed(2):'&#8212;')+'</div></div>'
     +'<div><div style="color:var(--text3);">P&L no realiz.</div><div class="'+(upnl>=0?'pos':'neg')+'" style="font-weight:700;">'+(upnl>=0?'+':'')+upnl.toFixed(4)+' U</div></div>'
     +'</div></div>';}).join('');
+}
+
+// ── ASTER CSV ──
+async function asterUploadCsv(e){
+  const file=e.target.files[0];if(!file)return;
+  const u=getUrl();if(!u){alert('Conecta el servidor primero.');return;}
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    try{
+      const rows=parseAsterCsv(ev.target.result);
+      if(!rows.length){alert('No se encontraron datos.');return;}
+      const resp=await fetch(u+'/aster/upload_csv',{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({rows})
+      });
+      const data=await resp.json();
+      if(data.ok){
+        const st=document.getElementById('aster-csv-status');
+        st.textContent=data.trades_added+' trades | Funding: '+(data.funding_total>=0?'+':'')+Number(data.funding_total).toFixed(4)+' | PnL: '+(data.trade_pnl>=0?'+':'')+Number(data.trade_pnl).toFixed(2);
+        st.style.color='var(--green)';
+        await fetchAll();
+      }else alert('Error: '+data.error);
+    }catch(err){alert('Error: '+err.message);}
+  };
+  reader.readAsText(file);e.target.value='';
+}
+
+function parseAsterCsv(text){
+  const lines=text.trim().split('\n');
+  const headers=lines[0].split(',').map(h=>h.trim().replace(/"/g,''));
+  return lines.slice(1).map(line=>{
+    const vals=line.split(',').map(v=>v.trim().replace(/"/g,''));
+    const row={};headers.forEach((h,i)=>row[h]=vals[i]||'');
+    return row;
+  }).filter(r=>r['Type']||r['type']);
+}
+
+async function asterClearCsv(){
+  const u=getUrl();if(!u)return;
+  if(!confirm('¿Borrar datos CSV de Aster?'))return;
+  await fetch(u+'/aster/clear_csv',{method:'POST'});
+  document.getElementById('aster-csv-status').textContent='Sin datos';
+  document.getElementById('aster-csv-status').style.color='';
+  await fetchAll();
 }
 
 // ── Config ──
