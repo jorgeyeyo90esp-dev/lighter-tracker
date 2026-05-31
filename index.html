@@ -12,6 +12,28 @@
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--text);min-height:100vh;}
 .wrap{max-width:1200px;margin:0 auto;padding:2rem 1.5rem;}
+/* AUTH */
+.auth-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg3);}
+.auth-card{background:var(--bg);border:.5px solid var(--bo);border-radius:var(--rl);padding:2rem;width:100%;max-width:420px;}
+.auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:1.5rem;}
+.auth-dot{width:10px;height:10px;border-radius:50%;background:var(--green);}
+.auth-title{font-size:18px;font-weight:700;}
+.auth-sub{font-size:13px;color:var(--text2);margin-top:2px;}
+.auth-tabs{display:flex;gap:0;margin-bottom:1.5rem;border:.5px solid var(--bo2);border-radius:var(--r);overflow:hidden;}
+.auth-tab{flex:1;padding:8px;text-align:center;font-size:14px;font-weight:500;cursor:pointer;background:transparent;border:none;color:var(--text2);transition:all .15s;}
+.auth-tab.active{background:var(--green);color:#fff;}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.field label{font-size:13px;color:var(--text2);font-weight:500;}
+.field input{font-size:14px;padding:10px 12px;border-radius:var(--r);border:.5px solid var(--bo2);background:var(--bg2);color:var(--text);outline:none;width:100%;}
+.field input:focus{border-color:var(--green);}
+.btn{font-size:14px;padding:10px 16px;border-radius:var(--r);border:.5px solid var(--bo2);cursor:pointer;font-weight:600;transition:all .15s;width:100%;}
+.btn:active{transform:scale(.98);}
+.bp{background:var(--green);color:#fff;border-color:var(--green);}.bp:hover{background:#0F6E56;}
+.bg{background:transparent;color:var(--text2);width:auto;}.bg:hover{background:var(--bg2);}
+.bd{background:transparent;color:var(--red);border-color:var(--rbg);width:auto;}
+.err{color:var(--red);font-size:13px;margin-top:8px;text-align:center;}
+.ok-msg{color:var(--green);font-size:13px;margin-top:8px;text-align:center;}
+/* APP */
 .hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:12px;}
 .logo{display:flex;align-items:center;gap:10px;}
 .dot{width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0;animation:pulse 2s infinite;}
@@ -46,16 +68,6 @@ tbody tr:hover td{background:var(--bg2);}
 .sl{color:var(--green);font-weight:600;}.ss{color:var(--red);font-weight:600;}
 .empty{text-align:center;padding:2.5rem;color:var(--text3);font-size:14px;}
 .empty i{font-size:32px;display:block;margin-bottom:8px;opacity:.3;}
-.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
-.field label{font-size:13px;color:var(--text2);font-weight:500;}
-.field input{font-size:14px;padding:9px 12px;border-radius:var(--r);border:.5px solid var(--bo2);background:var(--bg2);color:var(--text);outline:none;width:100%;}
-.field input:focus{border-color:var(--green);}
-.btn{font-size:14px;padding:8px 16px;border-radius:var(--r);border:.5px solid var(--bo2);cursor:pointer;font-weight:600;transition:all .15s;}
-.btn:active{transform:scale(.98);}
-.bp{background:var(--green);color:#fff;border-color:var(--green);}.bp:hover{background:#0F6E56;}
-.bg{background:transparent;color:var(--text2);}.bg:hover{background:var(--bg2);}
-.bd{background:transparent;color:var(--red);border-color:var(--rbg);}
-.brow{display:flex;gap:8px;flex-wrap:wrap;}
 .cwrap{padding:1.25rem;position:relative;height:260px;}
 .ox{overflow-x:auto;}
 .coin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:1rem;}
@@ -64,29 +76,79 @@ tbody tr:hover td{background:var(--bg2);}
 .cp{font-size:18px;font-weight:700;}
 .cs{font-size:11px;color:var(--text3);margin-top:3px;}
 .pc{background:var(--bg2);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;border:.5px solid var(--bo);}
-.info{border-radius:var(--r);padding:12px 16px;font-size:13px;line-height:1.6;}
-.iblue{background:var(--bbg);color:var(--btxt);}
-.igreen{background:var(--gbg);color:var(--gtxt);}
-.step{display:flex;gap:12px;align-items:flex-start;margin-bottom:1rem;}
-.sn{width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;}
-.sc p{font-size:13px;color:var(--text2);line-height:1.6;}
-.sc strong{display:block;font-size:14px;margin-bottom:2px;}
 .spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:5px;}
 @keyframes spin{to{transform:rotate(360deg);}}
+.invite-item{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:.5px solid var(--bo);font-size:13px;}
+.invite-item:last-child{border-bottom:none;}
+.code{font-family:monospace;font-weight:700;font-size:14px;color:var(--green);}
+.used{color:var(--text3);font-size:12px;}
+.brow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
 </style>
 </head>
 <body>
+
+<!-- AUTH SCREEN -->
+<div class="auth-wrap" id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-dot"></div>
+      <div><div class="auth-title">Lighter Tracker</div><div class="auth-sub">Seguimiento de operaciones</div></div>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">Iniciar sesion</button>
+      <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">Registrarse</button>
+    </div>
+    <!-- LOGIN -->
+    <div id="form-login">
+      <div class="field"><label>Email</label><input type="email" id="l-email" placeholder="tu@email.com" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="field"><label>Contrasena</label><input type="password" id="l-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <button class="btn bp" onclick="doLogin()" id="btn-login">Entrar</button>
+      <div id="login-err" class="err"></div>
+    </div>
+    <!-- REGISTER -->
+    <div id="form-register" style="display:none;">
+      <div class="field"><label>Email</label><input type="email" id="r-email" placeholder="tu@email.com"></div>
+      <div class="field"><label>Contrasena</label><input type="password" id="r-pass" placeholder="Minimo 6 caracteres"></div>
+      <div class="field"><label>Codigo de invitacion</label><input type="text" id="r-code" placeholder="XXXXXXXX" style="text-transform:uppercase"></div>
+      <button class="btn bp" onclick="doRegister()" id="btn-register">Crear cuenta</button>
+      <div id="register-err" class="err"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SETUP TOKEN SCREEN -->
+<div class="auth-wrap" id="setup-screen" style="display:none;">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-dot"></div>
+      <div><div class="auth-title">Conecta tu cuenta Lighter</div><div class="auth-sub" id="setup-email"></div></div>
+    </div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px;">Para ver tus trades necesitas un token de solo lectura de Lighter. No permite realizar operaciones ni retiradas.</p>
+    <div style="background:var(--gbg);border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--gtxt);margin-bottom:16px;">
+      Ve a <strong>app.lighter.xyz/read-only-tokens</strong> → "Create token" → tipo <strong>all</strong> → expiracion 1 ano → copia el token.
+    </div>
+    <div class="field"><label>Token de solo lectura</label><input type="password" id="s-token" placeholder="ro:123:all:1780000000:abc123..." oninput="previewSetupToken()"></div>
+    <div id="s-token-preview" style="font-size:12px;color:var(--green);margin-bottom:12px;display:none;"></div>
+    <button class="btn bp" onclick="doSetToken()" id="btn-set-token">Guardar y cargar datos</button>
+    <div id="setup-err" class="err"></div>
+    <button class="btn bg" onclick="doLogout()" style="margin-top:10px;font-size:13px;">Cerrar sesion</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div style="display:none;" id="app-screen">
 <div class="wrap">
 
 <div class="hdr">
   <div class="logo">
     <div class="dot"></div>
-    <div><h1>Lighter Tracker</h1><span class="sub" id="sub">Conectando...</span></div>
+    <div><h1>Lighter Tracker</h1><span class="sub" id="app-sub">Cargando...</span></div>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
     <span style="font-size:11px;color:var(--text3);" id="lu"></span>
     <span class="badge berr" id="badge">Sin conexion</span>
     <button class="btn bg" onclick="showPane('config')" style="padding:6px 10px;"><i class="ti ti-settings"></i></button>
+    <button class="btn bg" onclick="doLogout()" style="padding:6px 10px;" title="Cerrar sesion"><i class="ti ti-logout"></i></button>
   </div>
 </div>
 
@@ -117,14 +179,14 @@ tbody tr:hover td{background:var(--bg2);}
   <div class="frow">
     <input type="text" id="fsym" placeholder="Moneda..." style="width:120px;" oninput="renderTable()">
     <select id="fside" onchange="renderTable()"><option value="">Todos</option><option value="long">Long</option><option value="short">Short</option></select>
-    <select id="ftype" onchange="renderTable()"><option value="">Aperturas y cierres</option><option value="close">Solo cierres</option><option value="open">Solo aperturas</option></select>
+    <select id="ftype" onchange="renderTable()"><option value="">Todos</option><option value="close">Solo cierres</option><option value="open">Solo aperturas</option></select>
     <select id="fdays" onchange="renderTable()"><option value="0">Todos</option><option value="1">Hoy</option><option value="7">7 dias</option><option value="30">30 dias</option></select>
     <button class="btn bg" onclick="fetchAll()" style="font-size:13px;padding:5px 12px;"><i class="ti ti-refresh"></i> Actualizar</button>
   </div>
   <div class="card"><div class="ox">
     <table>
       <thead><tr><th>Fecha</th><th>Mercado</th><th>Tipo</th><th>Precio</th><th>Tamano</th><th>P&amp;L</th><th>Fee</th></tr></thead>
-      <tbody id="tbody"><tr><td colspan="7" class="empty"><i class="ti ti-plug"></i>Configura el servidor en la pestana Config.</td></tr></tbody>
+      <tbody id="tbody"><tr><td colspan="7" class="empty"><i class="ti ti-plug"></i>Cargando datos...</td></tr></tbody>
     </table>
   </div></div>
 </div>
@@ -137,7 +199,7 @@ tbody tr:hover td{background:var(--bg2);}
   </div></div>
 </div>
 
-<!-- POR MONEDA -->
+<!-- X MONEDA -->
 <div class="pane" id="pane-bycoin">
   <div class="card"><div class="cb">
     <p style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;">P&amp;L x moneda</p>
@@ -170,103 +232,213 @@ tbody tr:hover td{background:var(--bg2);}
 <!-- CONFIG -->
 <div class="pane" id="pane-config">
   <div class="card"><div class="cb">
-    <p style="font-size:15px;font-weight:600;margin-bottom:16px;">Conectar al servidor</p>
-    <div class="field">
-      <label>URL del servidor (Render)</label>
-      <input type="text" id="srv-url" placeholder="https://lighter-server-xxxx.onrender.com">
-    </div>
+    <p style="font-size:15px;font-weight:600;margin-bottom:4px;">Mi cuenta</p>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px;" id="cfg-email"></p>
+    <div class="field"><label>Token de Lighter (ro:...)</label><input type="password" id="cfg-token" placeholder="ro:123:all:..." oninput="previewCfgToken()"></div>
+    <div id="cfg-token-preview" style="font-size:12px;color:var(--green);margin-bottom:10px;display:none;"></div>
     <div class="brow">
-      <button class="btn bp" onclick="saveAndConnect()"><i class="ti ti-plug"></i> Guardar y conectar</button>
-      <button class="btn bg" onclick="testConn()"><i class="ti ti-wifi"></i> Test</button>
+      <button class="btn bp" onclick="updateToken()" style="width:auto;"><i class="ti ti-refresh"></i> Actualizar token</button>
     </div>
-    <div id="test-res" style="margin-top:8px;font-size:13px;"></div>
+    <div id="cfg-msg" style="font-size:13px;margin-top:8px;"></div>
   </div></div>
 
   <div class="card"><div class="cb">
-    <p style="font-size:15px;font-weight:600;margin-bottom:12px;">Como funciona</p>
-    <div class="step"><div class="sn">1</div><div class="sc"><strong>Carga historica completa al arrancar</strong><p>El servidor descarga todos tus trades y funding desde el inicio, con P&L real incluido.</p></div></div>
-    <div class="step"><div class="sn">2</div><div class="sc"><strong>Actualizacion incremental cada 15 min</strong><p>Solo descarga el dia en curso para mantener los datos al dia sin recargar todo.</p></div></div>
-    <div class="step"><div class="sn">3</div><div class="sc"><strong>WebSocket en tiempo real</strong><p>Nuevos trades aparecen al instante. La app sincroniza con el servidor cada 15 segundos.</p></div></div>
+    <p style="font-size:15px;font-weight:600;margin-bottom:12px;">Invitaciones</p>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Genera codigos para invitar a otras personas. Cada codigo solo se puede usar una vez.</p>
+    <button class="btn bp" onclick="createInvite()" style="width:auto;"><i class="ti ti-plus"></i> Generar nuevo codigo</button>
+    <div id="new-invite" style="margin-top:10px;display:none;">
+      <p style="font-size:13px;color:var(--text2);">Nuevo codigo:</p>
+      <p class="code" id="new-invite-code" style="font-size:20px;margin:4px 0;"></p>
+      <p style="font-size:12px;color:var(--text3);">Comparte este codigo con la persona que quieras invitar.</p>
+    </div>
+    <div id="invites-list" style="margin-top:16px;"></div>
   </div></div>
-
-  <div class="brow">
-    <button class="btn bd" onclick="clearAll()"><i class="ti ti-trash"></i> Borrar datos locales</button>
-  </div>
 </div>
 
 </div>
+</div>
+
 <script>
-let T=[],F=[],S={};
-let pI=null,dI=null,daI=null;
-let interval=null;
+const SRV = localStorage.getItem('lt_srv') || '';
+let authToken = localStorage.getItem('lt_auth') || '';
+let currentUser = null;
+let T=[], F=[], S={};
+let pI=null, dI=null, daI=null;
+let syncInterval=null;
 
-const KEY_URL='lt_srv_url';
-
-function getUrl(){return(localStorage.getItem(KEY_URL)||'').replace(/\/$/,'');}
-
-function saveAndConnect(){
-  const u=document.getElementById('srv-url').value.trim().replace(/\/$/,'');
-  if(!u){alert('Introduce la URL del servidor.');return;}
-  localStorage.setItem(KEY_URL,u);
-  fetchAll();
-  startInterval();
+// ── Auth ──
+function switchAuthTab(tab){
+  document.getElementById('tab-login').className='auth-tab'+(tab==='login'?' active':'');
+  document.getElementById('tab-register').className='auth-tab'+(tab==='register'?' active':'');
+  document.getElementById('form-login').style.display=tab==='login'?'block':'none';
+  document.getElementById('form-register').style.display=tab==='register'?'block':'none';
 }
 
-function testConn(){
-  const u=getUrl();
-  const el=document.getElementById('test-res');
-  if(!u){el.textContent='Introduce la URL primero.';return;}
-  el.innerHTML='<span class="spin"></span>Probando...';
-  fetch(u+'/status').then(r=>r.json()).then(d=>{
-    el.innerHTML='<span style="color:var(--green)">OK — '+d.trades+' trades | Funding: '+d.funding+' | WS: '+(d.connected?'activo':'reconectando')+(d.initial_load_done?'':' | Cargando historial...')+'</span>';
-  }).catch(e=>{
-    el.innerHTML='<span style="color:var(--red)">Error: '+e.message+'</span>';
-  });
+async function doLogin(){
+  const email=document.getElementById('l-email').value.trim();
+  const pass=document.getElementById('l-pass').value;
+  const btn=document.getElementById('btn-login');
+  const err=document.getElementById('login-err');
+  if(!email||!pass){err.textContent='Rellena todos los campos';return;}
+  btn.innerHTML='<span class="spin"></span>Entrando...';btn.disabled=true;err.textContent='';
+  try{
+    const r=await api('/auth/login',{method:'POST',body:{email,password:pass}});
+    if(r.error){err.textContent=r.error;return;}
+    authToken=r.token;
+    localStorage.setItem('lt_auth',authToken);
+    currentUser={user_id:r.user_id,email:r.email};
+    if(!r.has_lighter_token){showSetup();}
+    else{showApp();await fetchAll();startSync();}
+  }catch(e){err.textContent='Error de conexion. Comprueba la URL del servidor.';}
+  btn.innerHTML='Entrar';btn.disabled=false;
+}
+
+async function doRegister(){
+  const email=document.getElementById('r-email').value.trim();
+  const pass=document.getElementById('r-pass').value;
+  const code=document.getElementById('r-code').value.trim().toUpperCase();
+  const btn=document.getElementById('btn-register');
+  const err=document.getElementById('register-err');
+  if(!email||!pass||!code){err.textContent='Rellena todos los campos';return;}
+  btn.innerHTML='<span class="spin"></span>Registrando...';btn.disabled=true;err.textContent='';
+  try{
+    const r=await api('/auth/register',{method:'POST',body:{email,password:pass,invite_code:code}});
+    if(r.error){err.textContent=r.error;return;}
+    authToken=r.token;
+    localStorage.setItem('lt_auth',authToken);
+    currentUser={user_id:r.user_id,email:r.email};
+    showSetup();
+  }catch(e){err.textContent='Error de conexion.';}
+  btn.innerHTML='Crear cuenta';btn.disabled=false;
+}
+
+function previewSetupToken(){
+  const t=document.getElementById('s-token').value.trim();
+  const p=parseRoToken(t);
+  const el=document.getElementById('s-token-preview');
+  if(p){el.style.display='block';el.textContent='OK — Account: '+p.acc+' | Expira: '+new Date(p.exp*1000).toLocaleDateString('es-ES');}
+  else el.style.display='none';
+}
+
+function previewCfgToken(){
+  const t=document.getElementById('cfg-token').value.trim();
+  const p=parseRoToken(t);
+  const el=document.getElementById('cfg-token-preview');
+  if(p){el.style.display='block';el.textContent='OK — Account: '+p.acc+' | Expira: '+new Date(p.exp*1000).toLocaleDateString('es-ES');}
+  else el.style.display='none';
+}
+
+function parseRoToken(t){
+  if(!t||!t.startsWith('ro:'))return null;
+  const p=t.split(':');if(p.length<5)return null;
+  return{acc:p[1],exp:parseInt(p[3])};
+}
+
+async function doSetToken(){
+  const token=document.getElementById('s-token').value.trim();
+  const btn=document.getElementById('btn-set-token');
+  const err=document.getElementById('setup-err');
+  if(!parseRoToken(token)){err.textContent='Token invalido. Debe empezar por ro:';return;}
+  btn.innerHTML='<span class="spin"></span>Guardando...';btn.disabled=true;err.textContent='';
+  const r=await api('/user/token',{method:'POST',body:{lighter_token:token}});
+  if(r.error){err.textContent=r.error;btn.innerHTML='Guardar y cargar datos';btn.disabled=false;return;}
+  showApp();await fetchAll();startSync();
+  btn.innerHTML='Guardar y cargar datos';btn.disabled=false;
+}
+
+async function updateToken(){
+  const token=document.getElementById('cfg-token').value.trim();
+  const msg=document.getElementById('cfg-msg');
+  if(!parseRoToken(token)){msg.innerHTML='<span style="color:var(--red)">Token invalido.</span>';return;}
+  const r=await api('/user/token',{method:'POST',body:{lighter_token:token}});
+  if(r.error){msg.innerHTML='<span style="color:var(--red)">'+r.error+'</span>';}
+  else{msg.innerHTML='<span style="color:var(--green)">Token actualizado. Recargando datos...</span>';T=[];F=[];S={};await fetchAll();}
+}
+
+function doLogout(){
+  localStorage.removeItem('lt_auth');
+  authToken='';currentUser=null;T=[];F=[];S={};
+  if(syncInterval)clearInterval(syncInterval);
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('app-screen').style.display='none';
+}
+
+// ── Screens ──
+function showSetup(){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('setup-screen').style.display='flex';
+  document.getElementById('app-screen').style.display='none';
+  if(currentUser)document.getElementById('setup-email').textContent=currentUser.email;
+}
+
+function showApp(){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('app-screen').style.display='block';
+  if(currentUser){
+    document.getElementById('cfg-email').textContent=currentUser.email;
+    document.getElementById('app-sub').textContent=currentUser.email;
+  }
+  loadInvites();
+}
+
+// ── API calls ──
+async function api(path, opts={}){
+  const url=(localStorage.getItem('lt_srv')||'')+path;
+  const headers={'Content-Type':'application/json'};
+  if(authToken)headers['Authorization']='Bearer '+authToken;
+  const r=await fetch(url,{method:opts.method||'GET',headers,body:opts.body?JSON.stringify(opts.body):undefined});
+  return r.json();
 }
 
 async function fetchAll(){
-  const u=getUrl();if(!u)return;
   try{
-    const [sr,tr,fr]=await Promise.all([
-      fetch(u+'/summary'),
-      fetch(u+'/trades?limit=20000'),
-      fetch(u+'/funding')
-    ]);
-    if(!sr.ok)throw new Error('summary '+sr.status);
-    S=await sr.json();
-    if(tr.ok){const d=await tr.json();T=(d.trades||[]);}
-    if(fr.ok){const d=await fr.json();F=(d.funding||[]);}
-    updateHeader();
-    renderAll();
+    const [sr,tr]=await Promise.all([api('/user/summary'),api('/user/trades?limit=20000')]);
+    S=sr;
+    T=(tr.trades||[]);
+    updateHeader();renderAll();
     document.getElementById('lu').textContent='Sync '+new Date().toLocaleTimeString('es-ES');
-  }catch(e){
-    console.error(e);
-    setBadge('Sin conexion','berr');
-    document.getElementById('sub').textContent='Error conectando al servidor';
-  }
+  }catch(e){console.error(e);}
+}
+
+function startSync(){
+  if(syncInterval)clearInterval(syncInterval);
+  syncInterval=setInterval(fetchAll,15000);
 }
 
 function updateHeader(){
-  const loading=!S.initial_load_done;
+  const loading=S.loading||!S.initial_load_done;
   if(loading){
-    setBadge('Cargando...','bwarn');
-    document.getElementById('sub').textContent='Cargando historial de operaciones...';
+    document.getElementById('badge').textContent='Cargando...';
+    document.getElementById('badge').className='badge bwarn';
+    document.getElementById('app-sub').textContent='Cargando historial...';
   }else{
-    setBadge(S.connected?'En vivo':'Servidor OK', S.connected?'bok':'bwarn');
-    document.getElementById('sub').textContent='Account: '+S.account+' | '+S.total_trades+' trades';
+    document.getElementById('badge').textContent=S.connected?'En vivo':'Servidor OK';
+    document.getElementById('badge').className='badge '+(S.connected?'bok':'bwarn');
+    document.getElementById('app-sub').textContent=(currentUser?currentUser.email+' | ':'')+S.total_trades+' trades';
   }
 }
 
-function setBadge(txt,cls){
-  const b=document.getElementById('badge');
-  b.textContent=txt;b.className='badge '+cls;
+// ── Invites ──
+async function createInvite(){
+  const r=await api('/user/invite',{method:'POST'});
+  if(r.ok){
+    document.getElementById('new-invite').style.display='block';
+    document.getElementById('new-invite-code').textContent=r.code;
+    loadInvites();
+  }
 }
 
-function startInterval(){
-  if(interval)clearInterval(interval);
-  interval=setInterval(fetchAll,15000);
+async function loadInvites(){
+  const r=await api('/user/invites');
+  const list=document.getElementById('invites-list');
+  if(!r.invites||!r.invites.length){list.innerHTML='<p style="font-size:13px;color:var(--text3);">Aun no has generado codigos.</p>';return;}
+  list.innerHTML='<p style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;margin-bottom:8px;">Codigos generados</p>'+
+    r.invites.map(i=>'<div class="invite-item"><span class="code">'+i.code+'</span><span class="used">'+(i.used_by?'Usado':'Disponible')+'</span></div>').join('');
 }
 
+// ── Panes ──
 function showPane(t){
   document.querySelectorAll('.pane').forEach(p=>p.classList.remove('on'));
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
@@ -278,10 +450,7 @@ function showPane(t){
   if(t==='positions')renderPositions();
 }
 
-function pts(ts){
-  if(!ts)return new Date();
-  return new Date(typeof ts==='number'?ts:parseInt(ts));
-}
+function pts(ts){return new Date(typeof ts==='number'?ts:parseInt(ts));}
 
 function filtered(){
   const sym=document.getElementById('fsym').value.toLowerCase();
@@ -301,10 +470,7 @@ function filtered(){
 function renderTable(){
   const f=filtered();
   const b=document.getElementById('tbody');
-  if(!f.length){
-    b.innerHTML='<tr><td colspan="7" class="empty"><i class="ti ti-chart-candle"></i>'+(T.length?'Sin operaciones con ese filtro.':'Conecta el servidor para ver los datos.')+'</td></tr>';
-    return;
-  }
+  if(!f.length){b.innerHTML='<tr><td colspan="7" class="empty"><i class="ti ti-chart-candle"></i>'+(T.length?'Sin resultados.':'Cargando...')+'</td></tr>';return;}
   b.innerHTML=f.map(t=>{
     const pv=t.pnl;
     const hasP=t.tradeType==='close'&&pv!==null&&!isNaN(pv);
@@ -324,10 +490,8 @@ function renderTable(){
 function renderStats(){
   function setPnl(id,sub,val,subTxt){
     const e=document.getElementById(id);
-    if(val!==null&&val!==undefined){
-      e.textContent=(val>=0?'+':'')+Number(val).toFixed(2)+' USDC';
-      e.className='sval '+(val>0?'pos':val<0?'neg':'neu');
-    }else{e.textContent='&#8212;';e.className='sval neu';}
+    if(val!==null&&val!==undefined){e.textContent=(val>=0?'+':'')+Number(val).toFixed(2)+' USDC';e.className='sval '+(val>0?'pos':val<0?'neg':'neu');}
+    else{e.textContent='&#8212;';e.className='sval neu';}
     if(sub&&subTxt)document.getElementById(sub).textContent=subTxt;
   }
   setPnl('sp','sps',S.total_pnl,'Trades: '+(S.trade_pnl>=0?'+':'')+Number(S.trade_pnl||0).toFixed(2)+' | Funding: '+(S.funding_total>=0?'+':'')+Number(S.funding_total||0).toFixed(2));
@@ -339,30 +503,21 @@ function renderStats(){
   document.getElementById('sw').textContent=wr!==undefined?wr+'%':'&#8212;';
   document.getElementById('sw').className='sval '+(wr>=50?'pos':wr!==undefined&&wr<50?'neg':'');
   document.getElementById('sws').textContent=wr!==undefined?(S.wins||0)+' ganad. / '+(S.losses||0)+' perd.':'&#8212;';
-
-  // % rentabilidad sobre volumen total traded
   const closes=T.filter(t=>t.tradeType==='close');
   const vol=closes.reduce((a,t)=>a+(t.price||0)*(t.size||0),0);
   const pct=vol>0&&S.total_pnl!==undefined?((S.total_pnl/vol)*100):null;
   const ge=document.getElementById('sg');
   if(pct!==null){ge.textContent=(pct>=0?'+':'')+pct.toFixed(4)+'%';ge.className='sval '+(pct>0?'pos':pct<0?'neg':'neu');document.getElementById('sgs').textContent='Vol: $'+vol.toLocaleString('es-ES',{maximumFractionDigits:0});}
   else{ge.textContent='&#8212;';ge.className='sval neu';}
-
-  // 7 day and 30 day PnL from local trades
   const now=Date.now();
-  const d7=now-7*86400000;
-  const d30=now-30*86400000;
-  const pnl7=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl)&&pts(t.ts)>=d7).reduce((a,t)=>a+t.pnl,0);
-  const pnl30=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl)&&pts(t.ts)>=d30).reduce((a,t)=>a+t.pnl,0);
+  const pnl7=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl)&&pts(t.ts)>=(now-7*86400000)).reduce((a,t)=>a+t.pnl,0);
+  const pnl30=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl)&&pts(t.ts)>=(now-30*86400000)).reduce((a,t)=>a+t.pnl,0);
   setPnl('s7','s7s',pnl7,'ultimos 7 dias');
   setPnl('s30','s30s',pnl30,'ultimos 30 dias');
-
-  // Best day
   const dayMap={};
   T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl)).forEach(t=>{
     const k=pts(t.ts).toISOString().slice(0,10);
-    if(!dayMap[k])dayMap[k]=0;
-    dayMap[k]+=t.pnl;
+    if(!dayMap[k])dayMap[k]=0;dayMap[k]+=t.pnl;
   });
   const days=Object.values(dayMap);
   if(days.length){
@@ -378,14 +533,12 @@ function renderPositions(){
   const c=document.getElementById('pos-cont');
   if(!pos.length){c.innerHTML='<p style="color:var(--text3);font-size:14px;">Sin posiciones abiertas.</p>';return;}
   c.innerHTML=pos.map(p=>{
-    const upnl=parseFloat(p.unrealized_pnl||0);
-    const rpnl=parseFloat(p.realized_pnl||0);
-    return'<div class="pc">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><strong>'+p.symbol+'</strong><span class="badge '+(p.side==='long'?'bok':'berr')+'">'+p.side.toUpperCase()+'</span></div>'
+    const upnl=parseFloat(p.unrealized_pnl||0),rpnl=parseFloat(p.realized_pnl||0);
+    return'<div class="pc"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><strong>'+p.symbol+'</strong><span class="badge '+(p.side==='long'?'bok':'berr')+'">'+p.side.toUpperCase()+'</span></div>'
       +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px;">'
       +'<div><div style="color:var(--text3);">Tamano</div><div style="font-weight:600;">'+Number(p.size||0).toFixed(4)+'</div></div>'
-      +'<div><div style="color:var(--text3);">Entrada media</div><div style="font-weight:600;">$'+Number(p.avg_entry||0).toFixed(4)+'</div></div>'
-      +'<div><div style="color:var(--text3);">Liq. price</div><div style="font-weight:600;">'+(p.liquidation_price?'$'+Number(p.liquidation_price).toFixed(4):'&#8212;')+'</div></div>'
+      +'<div><div style="color:var(--text3);">Entrada</div><div style="font-weight:600;">$'+Number(p.avg_entry||0).toFixed(4)+'</div></div>'
+      +'<div><div style="color:var(--text3);">Liq.</div><div style="font-weight:600;">'+(p.liquidation_price?'$'+Number(p.liquidation_price).toFixed(4):'&#8212;')+'</div></div>'
       +'<div><div style="color:var(--text3);">P&L no realiz.</div><div class="'+(upnl>=0?'pos':'neg')+'" style="font-weight:700;">'+(upnl>=0?'+':'')+upnl.toFixed(4)+' U</div></div>'
       +'<div><div style="color:var(--text3);">P&L realizado</div><div class="'+(rpnl>=0?'pos':'neg')+'" style="font-weight:700;">'+(rpnl>=0?'+':'')+rpnl.toFixed(4)+' U</div></div>'
       +'</div></div>';
@@ -407,16 +560,15 @@ function renderByCoin(){
     const pc=c.pnl>0?'pos':c.pnl<0?'neg':'neu';
     const wr=c.trades>0?Math.round((c.wins||0)/c.trades*100):0;
     const pct=totalPnl!==0?((c.pnl/Math.abs(totalPnl))*100):0;
-    const pctEl='<span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span>';
     const best=c.best!==null?'<span class="pos">+'+Number(c.best).toFixed(2)+'</span>':'&#8212;';
     const worst=c.worst!==null?'<span class="neg">'+Number(c.worst).toFixed(2)+'</span>':'&#8212;';
-    return'<tr><td><strong>'+c.symbol+'</strong></td><td>'+c.trades+'</td><td><span class="'+pc+'">'+(c.pnl>=0?'+':'')+Number(c.pnl).toFixed(2)+' U</span></td><td>'+pctEl+'</td><td>'+wr+'%</td><td>'+best+'</td><td>'+worst+'</td></tr>';
+    return'<tr><td><strong>'+c.symbol+'</strong></td><td>'+c.trades+'</td><td><span class="'+pc+'">'+(c.pnl>=0?'+':'')+Number(c.pnl).toFixed(2)+' U</span></td><td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td><td>'+wr+'%</td><td>'+best+'</td><td>'+worst+'</td></tr>';
   }).join('');
 }
 
 function renderDaily(){
   const closes=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
-  if(!closes.length){document.getElementById('daily-body').innerHTML='<tr><td colspan="5" class="empty">Sin datos.</td></tr>';return;}
+  if(!closes.length){document.getElementById('daily-body').innerHTML='<tr><td colspan="6" class="empty">Sin datos.</td></tr>';return;}
   const map={};
   closes.forEach(t=>{
     const k=pts(t.ts).toISOString().slice(0,10);
@@ -431,16 +583,15 @@ function renderDaily(){
     data:{labels:last30.map(d=>d.key.slice(5)),datasets:[{label:'P&L',data:last30.map(d=>parseFloat(d.pnl.toFixed(4))),backgroundColor:last30.map(d=>d.pnl>=0?'#1D9E7599':'#E24B4A99'),borderRadius:3}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+v.toFixed(0),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{autoSkip:true,maxTicksLimit:15,font:{size:10}},grid:{display:false}}}}
   });
-  let cum=days.reduce((a,d)=>a+d.pnl,0);
   const grandTotal=days.reduce((a,d)=>a+d.pnl,0);
+  let cum=grandTotal;
   document.getElementById('daily-body').innerHTML=days.map(d=>{
     const pc=d.pnl>0?'pos':d.pnl<0?'neg':'neu';
     const wr=d.pnls.length?Math.round(d.wins/d.pnls.length*100):0;
     const pct=grandTotal!==0?((d.pnl/Math.abs(grandTotal))*100):0;
-    const pctEl='<span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span>';
     const row='<tr><td style="white-space:nowrap;">'+d.key+'</td><td>'+d.count+'</td>'
       +'<td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(4)+' U</span></td>'
-      +'<td>'+pctEl+'</td>'
+      +'<td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td>'
       +'<td><span class="'+(cum>=0?'pos':'neg')+'">'+(cum>=0?'+':'')+cum.toFixed(2)+' U</span></td>'
       +'<td>'+wr+'%</td></tr>';
     cum-=d.pnl;return row;
@@ -455,30 +606,36 @@ function renderCharts(){
   if(pI)pI.destroy();
   const col=cumData.length&&cumData[cumData.length-1]>=0?'#1D9E75':'#E24B4A';
   pI=new Chart(document.getElementById('pnlChart').getContext('2d'),{
-    type:'line',
-    data:{labels:pnls.map((_,i)=>'#'+(i+1)),datasets:[{label:'P&L acumulado',data:cumData,borderColor:col,backgroundColor:col+'22',fill:true,tension:0.3,pointRadius:cumData.length>80?0:3,borderWidth:2}]},
+    type:'line',data:{labels:pnls.map((_,i)=>'#'+(i+1)),datasets:[{label:'P&L acumulado',data:cumData,borderColor:col,backgroundColor:col+'22',fill:true,tension:0.3,pointRadius:cumData.length>80?0:3,borderWidth:2}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+v.toFixed(0),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{autoSkip:true,maxTicksLimit:12,font:{size:11}},grid:{display:false}}}}
   });
   const w=pnls.filter(p=>p>0).length,l=pnls.filter(p=>p<0).length,be=pnls.filter(p=>p===0).length;
   if(dI)dI.destroy();
   dI=new Chart(document.getElementById('distChart').getContext('2d'),{
-    type:'doughnut',
-    data:{labels:['Ganadoras','Perdedoras','Break-even'],datasets:[{data:[w,l,be],backgroundColor:['#1D9E75','#E24B4A','#888780'],borderWidth:0}]},
+    type:'doughnut',data:{labels:['Ganadoras','Perdedoras','Break-even'],datasets:[{data:[w,l,be],backgroundColor:['#1D9E75','#E24B4A','#888780'],borderWidth:0}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:12},padding:16}}}}
   });
 }
 
-function clearAll(){if(!confirm('Borrar datos locales?'))return;T=[];F=[];S={};localStorage.removeItem(KEY_URL);document.getElementById('srv-url').value='';renderAll();setBadge('Sin conexion','berr');document.getElementById('sub').textContent='Conectando...';}
 function renderAll(){renderStats();renderTable();}
 
-// Init
-const savedUrl=localStorage.getItem(KEY_URL);
-if(savedUrl){
-  document.getElementById('srv-url').value=savedUrl;
-  fetchAll();
-  startInterval();
+// ── Init ──
+// Store server URL
+if(!localStorage.getItem('lt_srv')){
+  const url=prompt('URL del servidor Render (ej: https://lighter-server.onrender.com):');
+  if(url)localStorage.setItem('lt_srv',url.trim().replace(/\/$/,''));
+}
+
+// Auto-login if token exists
+if(authToken){
+  api('/user/me').then(r=>{
+    if(r.error){doLogout();return;}
+    currentUser={user_id:r.user_id,email:r.email};
+    if(!r.has_lighter_token){showSetup();}
+    else{showApp();fetchAll();startSync();}
+  }).catch(()=>doLogout());
 }else{
-  showPane('config');
+  document.getElementById('auth-screen').style.display='flex';
 }
 </script>
 </body>
