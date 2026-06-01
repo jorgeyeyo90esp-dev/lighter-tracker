@@ -717,22 +717,25 @@ function renderDailyView(trades,chartId,bodyId,chartRef,accountBal){
 }
 
 function ltRenderMonthly(){
-  const closes=LT_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  // Trades con PnL (cierres)
+  const closes=LT_T.filter(t=>t.pnl!==null&&t.pnl!==undefined&&!isNaN(parseFloat(t.pnl)));
+  // Funding desde el summary
   const fundingByMonth={};
-  LT.funding_fees&&LT.funding_fees.forEach&&LT.funding_fees.forEach(f=>{
-    if(!f.ts)return;
+  const fundList=LT.funding_fees||[];
+  fundList.forEach(f=>{
+    if(!f||!f.ts)return;
     const k=new Date(parseInt(f.ts)).toISOString().slice(0,7);
-    fundingByMonth[k]=(fundingByMonth[k]||0)+(f.payment||0);
+    fundingByMonth[k]=(fundingByMonth[k]||0)+(parseFloat(f.payment)||0);
   });
   const map={};
   closes.forEach(t=>{
     const k=pts(t.ts).toISOString().slice(0,7);
     if(!map[k])map[k]={key:k,pnl:0,count:0,wins:0};
-    map[k].count++;map[k].pnl+=t.pnl;
-    if(t.pnl>0)map[k].wins++;
+    map[k].count++;map[k].pnl+=parseFloat(t.pnl);
+    if(parseFloat(t.pnl)>0)map[k].wins++;
   });
-  // Also add months that only have funding
   Object.keys(fundingByMonth).forEach(k=>{if(!map[k])map[k]={key:k,pnl:0,count:0,wins:0};});
+  console.log('Monthly: closes='+closes.length+' fundMonths='+Object.keys(fundingByMonth).length+' months='+Object.keys(map).length);
   const months=Object.values(map).sort((a,b)=>b.key.localeCompare(a.key));
   const bal=LT.account_balance||0;
   const body=document.getElementById('lt-monthly-body');
