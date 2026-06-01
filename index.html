@@ -333,19 +333,14 @@ function hlShowTab(t){
 async function fetchAll(){
   const u=getUrl();if(!u)return;
   try{
-    const [sr,tr,hsr,htr,asr,atr]=await Promise.all([
-      fetch(u+'/summary'),fetch(u+'/trades?limit=20000'),
-      fetch(u+'/hl/summary'),fetch(u+'/hl/trades?limit=20000'),
-      fetch(u+'/aster/summary'),fetch(u+'/aster/trades?limit=20000')
+    const [sr,tr]=await Promise.all([
+      fetch(u+'/summary'),fetch(u+'/trades?limit=20000')
     ]);
     if(sr.ok){LT=await sr.json();LT_T=(await tr.json()).trades||[];}
-    if(hsr.ok){HLS=await hsr.json();HL_T=(await htr.json()).trades||[];}
-    if(asr&&asr.ok){AT_S=await asr.json();AT_T=(await atr.json()).trades||[];atRenderStats();atRenderTable();}
     updateSidebar();renderDashboard();
     ltRenderStats();ltRenderTable();
-    hlRenderStats();hlRenderTable();
     document.getElementById('sync-time').textContent=new Date().toLocaleTimeString('es-ES');
-    document.getElementById('topbar-status').textContent=(LT.total_trades||0)+' LT | '+(HLS.total_trades||0)+' HL';
+    document.getElementById('topbar-status').textContent=(LT.total_trades||0)+' trades';
   }catch(e){
     document.getElementById('sync-time').textContent='Error';
     document.getElementById('conn-dot').className='conn-dot off';
