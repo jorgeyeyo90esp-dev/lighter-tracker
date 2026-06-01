@@ -142,6 +142,14 @@ tbody tr:hover td{background:var(--bg2);}
       <i class="ti ti-flame" aria-hidden="true"></i><span>Lighter</span>
       <span class="nav-badge bok" id="nav-lighter-badge" style="display:none;">●</span>
     </div>
+    <div class="nav-item" onclick="goPage('hl')" id="nav-hl">
+      <i class="ti ti-topology-star" aria-hidden="true"></i><span>Hyperliquid</span>
+      <span class="nav-badge bok" id="nav-hl-badge" style="display:none;">●</span>
+    </div>
+    <div class="nav-item" onclick="goPage('aster')" id="nav-aster">
+      <i class="ti ti-star" aria-hidden="true"></i><span>Aster</span>
+      <span class="nav-badge bok" id="nav-aster-badge" style="display:none;">●</span>
+    </div>
     <div class="nav-section">Ajustes</div>
     <div class="nav-item" onclick="goPage('config')" id="nav-config">
       <i class="ti ti-settings" aria-hidden="true"></i><span>Configuracion</span>
@@ -211,7 +219,26 @@ tbody tr:hover td{background:var(--bg2);}
             <div class="exch-stat"><div class="exch-stat-lbl">P&amp;L hoy</div><div class="exch-stat-val" id="hl-today">&#8212;</div></div>
           </div>
         </div>
-        <!-- Combined PnL chart -->
+        <!-- Aster card -->
+        <div class="exch-card" id="dash-aster-card">
+          <div class="exch-header">
+            <div class="exch-dot" style="background:#A0522D;"></div>
+            <div class="exch-name">Aster</div>
+            <span style="margin-left:auto;font-size:11px;color:var(--text3);" id="aster-conn-lbl">&#8212;</span>
+          </div>
+          <div class="exch-pnl neu" id="aster-pnl">&#8212;</div>
+          <div class="exch-sub" id="aster-pnl-sub">trades + funding</div>
+          <div class="exch-stats">
+            <div class="exch-stat"><div class="exch-stat-lbl">Capital</div><div class="exch-stat-val" id="aster-bal">&#8212;</div></div>
+            <div class="exch-stat"><div class="exch-stat-lbl">Win rate</div><div class="exch-stat-val" id="aster-wr">&#8212;</div></div>
+            <div class="exch-stat"><div class="exch-stat-lbl">Trades</div><div class="exch-stat-val" id="aster-trades-count">&#8212;</div></div>
+            <div class="exch-stat"><div class="exch-stat-lbl">P&amp;L hoy</div><div class="exch-stat-val" id="aster-today">&#8212;</div></div>
+            <div class="exch-stat" style="grid-column:span 2;"><div class="exch-stat-lbl">% hoy / cuenta</div><div class="exch-stat-val" id="aster-today-pct">&#8212;</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Combined PnL chart -->
       <div class="card">
         <div class="cb" style="padding-bottom:0;">
           <p style="font-size:12px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;">P&amp;L acumulado combinado</p>
@@ -268,6 +295,137 @@ tbody tr:hover td{background:var(--bg2);}
       </div>
     </div>
 
+    <!-- ═══════════ HYPERLIQUID ═══════════ -->
+    <div class="page" id="page-hl">
+      <div class="stats">
+        <div class="stat"><div class="slbl">P&amp;L Total</div><div class="sval neu" id="hl2-sp">&#8212;</div><div class="ssub" id="hl2-sps">trades + funding</div></div>
+        <div class="stat"><div class="slbl">P&amp;L Hoy</div><div class="sval neu" id="hl2-sd">&#8212;</div><div class="ssub" id="hl2-sds">&#8212;</div></div>
+        <div class="stat"><div class="slbl">Funding total</div><div class="sval neu" id="hl2-sf">&#8212;</div><div class="ssub">fees acumulados</div></div>
+        <div class="stat"><div class="slbl">Win rate</div><div class="sval" id="hl2-sw">&#8212;</div><div class="ssub" id="hl2-sws">&#8212;</div></div>
+      </div>
+      <div class="stats-2">
+        <div class="stat"><div class="slbl">% Rentabilidad</div><div class="sval neu" id="hl2-sg">&#8212;</div><div class="ssub" id="hl2-sgs">sobre capital</div></div>
+        <div class="stat"><div class="slbl">P&amp;L 7 dias</div><div class="sval neu" id="hl2-s7">&#8212;</div><div class="ssub" id="hl2-s7s">&#8212;</div></div>
+        <div class="stat"><div class="slbl">P&amp;L 30 dias</div><div class="sval neu" id="hl2-s30">&#8212;</div><div class="ssub" id="hl2-s30s">&#8212;</div></div>
+        <div class="stat"><div class="slbl">Capital cuenta</div><div class="sval neu" id="hl2-bal">&#8212;</div><div class="ssub">account value</div></div>
+      </div>
+      <!-- HL Funding CSV upload -->
+      <div class="card" style="margin-bottom:1rem;">
+        <div class="cb" style="padding:12px 16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div>
+              <p style="font-size:13px;font-weight:600;margin-bottom:2px;">Funding Fee CSV</p>
+              <p style="font-size:12px;color:var(--text3);">Exporta desde Hyperliquid → Portfolio → Historial de Funding → Exportar todo</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="hl-funding-status" style="font-size:12px;color:var(--text3);">Sin datos</span>
+              <button class="btn bg" onclick="document.getElementById('hl-csv-input').click()" style="font-size:12px;padding:5px 10px;"><i class="ti ti-upload"></i> Subir CSV</button>
+              <button class="btn bg" onclick="hlClearFunding()" style="font-size:12px;padding:5px 10px;color:var(--red);"><i class="ti ti-trash"></i></button>
+              <input type="file" id="hl-csv-input" accept=".csv" style="display:none" onchange="hlUploadFunding(event)">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="inner-tabs">
+        <button class="itab active" id="hltab-history" onclick="hlShowTab('history')"><i class="ti ti-list"></i> Historial</button>
+        <button class="itab" id="hltab-positions" onclick="hlShowTab('positions')"><i class="ti ti-chart-area"></i> Posiciones</button>
+        <button class="itab" id="hltab-bycoin" onclick="hlShowTab('bycoin')"><i class="ti ti-coin"></i> X Moneda</button>
+        <button class="itab" id="hltab-daily" onclick="hlShowTab('daily')"><i class="ti ti-calendar"></i> Diario</button>
+        <button class="itab" id="hltab-chart" onclick="hlShowTab('chart')"><i class="ti ti-chart-line"></i> Grafica</button>
+      </div>
+      <div class="ipane on" id="hl-history">
+        <div class="frow">
+          <input type="text" id="hl-fsym" placeholder="Moneda..." style="width:110px;" oninput="hlRenderTable()">
+          <select id="hl-fside" onchange="hlRenderTable()"><option value="">Todos</option><option value="long">Long</option><option value="short">Short</option></select>
+          <select id="hl-ftype" onchange="hlRenderTable()"><option value="">Todos</option><option value="close">Cierres</option><option value="open">Aperturas</option></select>
+          <select id="hl-fdays" onchange="hlRenderTable()"><option value="0">Todos</option><option value="1">Hoy</option><option value="7">7 dias</option><option value="30">30 dias</option></select>
+        </div>
+        <div class="card"><div class="ox"><table>
+          <thead><tr><th>Fecha</th><th>Moneda</th><th>Tipo</th><th>Precio</th><th>Tamano</th><th>P&amp;L</th><th>Fee</th></tr></thead>
+          <tbody id="hl-tbody"><tr><td colspan="7" class="empty"><i class="ti ti-plug"></i>Cargando...</td></tr></tbody>
+        </table></div></div>
+      </div>
+      <div class="ipane" id="hl-positions"><div class="card"><div class="cb"><div id="hl-pos-cont"><p style="color:var(--text3);">Sin posiciones.</p></div></div></div></div>
+      <div class="ipane" id="hl-bycoin">
+        <div class="card"><div class="cb"><div class="coin-grid" id="hl-coin-grid"></div></div></div>
+        <div class="card"><div class="cb"><div class="ox"><table><thead><tr><th>Moneda</th><th>Cierres</th><th>P&amp;L</th><th>% total</th><th>WR</th><th>Mejor</th><th>Peor</th></tr></thead><tbody id="hl-coin-table"></tbody></table></div></div></div>
+      </div>
+      <div class="ipane" id="hl-daily">
+        <div class="card"><div class="cwrap" style="height:200px;"><canvas id="hl-dailyChart" role="img" aria-label="P&L diario HL">Sin datos</canvas></div></div>
+        <div class="card"><div class="cb"><div class="ox"><table><thead><tr><th>Fecha</th><th>Trades</th><th>P&amp;L</th><th>%</th><th>Acumulado</th><th>WR</th></tr></thead><tbody id="hl-daily-body"></tbody></table></div></div></div>
+      </div>
+      <div class="ipane" id="hl-chart">
+        <div class="card"><div class="cwrap"><canvas id="hl-pnlChart" role="img" aria-label="P&L HL">Sin datos</canvas></div></div>
+        <div class="card" style="margin-top:1rem;"><div class="cwrap" style="height:180px;"><canvas id="hl-distChart" role="img" aria-label="Win/loss HL">Sin datos</canvas></div></div>
+      </div>
+    </div>
+
+    <!-- ═══════════ ASTER ═══════════ -->
+    <div class="page" id="page-aster">
+      <div class="stats">
+        <div class="stat"><div class="slbl">P&amp;L Total</div><div class="sval neu" id="at2-sp">&#8212;</div><div class="ssub" id="at2-sps">trades + funding</div></div>
+        <div class="stat"><div class="slbl">P&amp;L Hoy</div><div class="sval neu" id="at2-sd">&#8212;</div><div class="ssub" id="at2-sds">&#8212;</div></div>
+        <div class="stat"><div class="slbl">Funding total</div><div class="sval neu" id="at2-sf">&#8212;</div><div class="ssub">fees acumulados</div></div>
+        <div class="stat"><div class="slbl">Win rate</div><div class="sval" id="at2-sw">&#8212;</div><div class="ssub" id="at2-sws">&#8212;</div></div>
+      </div>
+      <div class="stats-2">
+        <div class="stat"><div class="slbl">% Rentabilidad</div><div class="sval neu" id="at2-sg">&#8212;</div><div class="ssub" id="at2-sgs">sobre capital</div></div>
+        <div class="stat"><div class="slbl">P&amp;L 7 dias</div><div class="sval neu" id="at2-s7">&#8212;</div><div class="ssub" id="at2-s7s">&#8212;</div></div>
+        <div class="stat"><div class="slbl">P&amp;L 30 dias</div><div class="sval neu" id="at2-s30">&#8212;</div><div class="ssub" id="at2-s30s">&#8212;</div></div>
+        <div class="stat"><div class="slbl">Capital cuenta</div><div class="sval neu" id="at2-bal">&#8212;</div><div class="ssub">account value</div></div>
+      </div>
+      <!-- Aster CSV upload -->
+      <div class="card" style="margin-bottom:1rem;">
+        <div class="cb" style="padding:12px 16px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div>
+              <p style="font-size:13px;font-weight:600;margin-bottom:2px;">Historial CSV de Aster</p>
+              <p style="font-size:12px;color:var(--text3);">Aster → Historial de transacciones → icono exportar (arriba a la derecha)</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span id="aster-csv-status" style="font-size:12px;color:var(--text3);">Sin datos</span>
+              <button class="btn bg" onclick="document.getElementById('aster-csv-input').click()" style="font-size:12px;padding:5px 10px;"><i class="ti ti-upload"></i> Subir CSV</button>
+              <button class="btn bg" onclick="asterClearCsv()" style="font-size:12px;padding:5px 10px;color:var(--red);"><i class="ti ti-trash"></i></button>
+              <input type="file" id="aster-csv-input" accept=".csv" style="display:none" onchange="asterUploadCsv(event)">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="inner-tabs">
+        <button class="itab active" id="atab-history" onclick="atShowTab('history')"><i class="ti ti-list"></i> Historial</button>
+        <button class="itab" id="atab-positions" onclick="atShowTab('positions')"><i class="ti ti-chart-area"></i> Posiciones</button>
+        <button class="itab" id="atab-bycoin" onclick="atShowTab('bycoin')"><i class="ti ti-coin"></i> X Moneda</button>
+        <button class="itab" id="atab-daily" onclick="atShowTab('daily')"><i class="ti ti-calendar"></i> Diario</button>
+        <button class="itab" id="atab-chart" onclick="atShowTab('chart')"><i class="ti ti-chart-line"></i> Grafica</button>
+      </div>
+      <div class="ipane on" id="at-history">
+        <div class="frow">
+          <input type="text" id="at-fsym" placeholder="Moneda..." style="width:110px;" oninput="atRenderTable()">
+          <select id="at-fside" onchange="atRenderTable()"><option value="">Todos</option><option value="long">Long</option><option value="short">Short</option></select>
+          <select id="at-fdays" onchange="atRenderTable()"><option value="0">Todos</option><option value="1">Hoy</option><option value="7">7 dias</option><option value="30">30 dias</option></select>
+        </div>
+        <div class="card"><div class="ox"><table>
+          <thead><tr><th>Fecha</th><th>Mercado</th><th>P&amp;L</th></tr></thead>
+          <tbody id="at-tbody"><tr><td colspan="3" class="empty"><i class="ti ti-plug"></i>Cargando Aster...</td></tr></tbody>
+        </table></div></div>
+      </div>
+      <div class="ipane" id="at-positions"><div class="card"><div class="cb"><div id="at-pos-cont"><p style="color:var(--text3);">Sin posiciones.</p></div></div></div></div>
+      <div class="ipane" id="at-bycoin">
+        <div class="card"><div class="cb"><div class="coin-grid" id="at-coin-grid"></div></div></div>
+        <div class="card"><div class="cb"><div class="ox"><table><thead><tr><th>Mercado</th><th>Cierres</th><th>P&amp;L</th><th>% total</th><th>WR</th><th>Mejor</th><th>Peor</th></tr></thead><tbody id="at-coin-table"></tbody></table></div></div></div>
+      </div>
+      <div class="ipane" id="at-daily">
+        <div class="card"><div class="cwrap" style="height:200px;"><canvas id="at-dailyChart" role="img" aria-label="P&L diario Aster">Sin datos</canvas></div></div>
+        <div class="card"><div class="cb"><div class="ox"><table><thead><tr><th>Fecha</th><th>Trades</th><th>P&amp;L</th><th>%</th><th>Acumulado</th><th>WR</th></tr></thead><tbody id="at-daily-body"></tbody></table></div></div></div>
+      </div>
+      <div class="ipane" id="at-chart">
+        <div class="card"><div class="cwrap"><canvas id="at-pnlChart" role="img" aria-label="P&L Aster">Sin datos</canvas></div></div>
+        <div class="card" style="margin-top:1rem;"><div class="cwrap" style="height:180px;"><canvas id="at-distChart" role="img" aria-label="Win/loss Aster">Sin datos</canvas></div></div>
+      </div>
+    </div>
+
     <!-- ═══════════ CONFIG ═══════════ -->
     <div class="page" id="page-config">
       <div class="card"><div class="cb">
@@ -288,7 +446,7 @@ tbody tr:hover td{background:var(--bg2);}
 let LT={},HLS={},LT_T=[],HL_T=[];
 let charts={};
 let iv=null;
-const PAGES={dashboard:'Dashboard',lighter:'Lighter',config:'Configuracion'};
+const PAGES={dashboard:'Dashboard',lighter:'Lighter',hl:'Hyperliquid',aster:'Aster',config:'Configuracion'};
 
 function getUrl(){return(localStorage.getItem('lt_url')||'').replace(/\/$/,'');}
 function pts(ts){return new Date(typeof ts==='number'?ts:parseInt(ts));}
@@ -302,7 +460,8 @@ function goPage(p){
   document.getElementById('page-title').textContent=PAGES[p]||p;
   if(p==='dashboard')renderDashboard();
   if(p==='lighter'){ltRenderStats();ltRenderTable();}
-
+  if(p==='hl'){hlRenderStats();hlRenderTable();}
+  if(p==='aster'){atRenderStats();atRenderTable();fetchAster();}
 }
 
 // ── Lighter inner tabs ──
@@ -360,10 +519,14 @@ function updateSidebar(){
 // ── DASHBOARD ──
 function renderDashboard(){
   const ltPnl=LT.total_pnl||0;
+  const hlPnl=HLS.total_pnl||0;
+  const atPnl=AT_S.total_pnl||0;
   const ltBal=LT.account_balance||0;
-  const totalPnl=ltPnl;
-  const totalBal=ltBal;
-  const totalToday=LT.today_pnl||0;
+  const hlBal=HLS.account_balance||0;
+  const atBal=AT_S.account_balance||0;
+  const totalPnl=ltPnl+hlPnl+atPnl;
+  const totalBal=ltBal+hlBal+atBal;
+  const totalToday=(LT.today_pnl||0)+(HLS.today_pnl||0)+(AT_S.today_pnl||0);
 
   function setVal(id,val,cls){
     const e=document.getElementById(id);
@@ -372,15 +535,15 @@ function renderDashboard(){
     e.className='sval '+(cls||( val>0?'pos':val<0?'neg':'neu'));
   }
   setVal('d-total',totalPnl);
-  document.getElementById('d-total-sub').textContent='Lighter: '+(ltPnl>=0?'+':'')+ltPnl.toFixed(2)+' USDC';
+  document.getElementById('d-total-sub').textContent='LT: '+(ltPnl>=0?'+':'')+ltPnl.toFixed(2)+' | HL: '+(hlPnl>=0?'+':'')+hlPnl.toFixed(2)+' | AT: '+(atPnl>=0?'+':'')+atPnl.toFixed(2);
   const cb=document.getElementById('d-capital');
   cb.textContent=totalBal>0?'$'+totalBal.toFixed(2):'&#8212;';
   cb.className='sval neu';
-  if(totalBal>0)document.getElementById('d-capital-sub').textContent='Lighter: $'+ltBal.toFixed(2);
+  if(totalBal>0)document.getElementById('d-capital-sub').textContent='LT: $'+ltBal.toFixed(2)+' | HL: $'+hlBal.toFixed(2)+' | AT: $'+atBal.toFixed(2);
   const pg=document.getElementById('d-pct');
   if(totalBal>0){const pct=(totalPnl/totalBal)*100;pg.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%';pg.className='sval '+(pct>0?'pos':pct<0?'neg':'neu');document.getElementById('d-pct-sub').textContent='sobre $'+totalBal.toFixed(2);}
   setVal('d-today',totalToday);
-  document.getElementById('d-today-sub').textContent='Hoy: '+(LT.today_pnl>=0?'+':'')+Number(LT.today_pnl||0).toFixed(2)+' USDC';
+  document.getElementById('d-today-sub').textContent='LT: '+(LT.today_pnl>=0?'+':'')+Number(LT.today_pnl||0).toFixed(2)+' | HL: '+(HLS.today_pnl>=0?'+':'')+Number(HLS.today_pnl||0).toFixed(2)+' | AT: '+(AT_S.today_pnl>=0?'+':'')+Number(AT_S.today_pnl||0).toFixed(2);
   const dtp=document.getElementById('d-today-pct');
   if(dtp&&totalBal>0){const pct=(totalToday/totalBal)*100;dtp.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%';dtp.className='sval '+(pct>0?'pos':pct<0?'neg':'neu');document.getElementById('d-today-pct-sub').textContent='Hoy: '+(totalToday>=0?'+':'')+totalToday.toFixed(2)+' / $'+totalBal.toFixed(2);}
 
@@ -654,7 +817,90 @@ function hlRenderPositions(){
     +'</div></div>';}).join('');
 }
 
+// ── ASTER ──
+let AT_S={}, AT_T=[];
 
+function atShowTab(t){
+  document.querySelectorAll('#page-aster .ipane').forEach(x=>x.classList.remove('on'));
+  document.querySelectorAll('[id^="atab-"]').forEach(x=>x.classList.remove('active'));
+  document.getElementById('at-'+t).classList.add('on');
+  document.getElementById('atab-'+t).classList.add('active');
+  if(t==='chart')renderLineCharts(AT_T,'at-pnlChart','at-distChart','at-pnl','at-dist');
+  if(t==='bycoin')renderByCoin(AT_S.by_symbol,'at-coin-grid','at-coin-table');
+  if(t==='daily')renderDailyView(AT_T,'at-dailyChart','at-daily-body','at-daily');
+  if(t==='positions')atRenderPositions();
+}
+
+async function fetchAster(){
+  const u=getUrl();if(!u)return;
+  try{
+    const [sr,tr]=await Promise.all([fetch(u+'/aster/summary'),fetch(u+'/aster/trades?limit=20000')]);
+    if(!sr.ok)return;
+    AT_S=await sr.json();
+    AT_T=(await tr.json()).trades||[];
+    atRenderStats();atRenderTable();
+    if(AT_S.initial_load_done)document.getElementById('nav-aster-badge').style.display='inline';
+  }catch(e){console.error('Aster fetch:',e);}
+}
+
+function atRenderStats(){
+  setPnl('at2-sp','at2-sps',AT_S.total_pnl,'Trades: '+(AT_S.trade_pnl>=0?'+':'')+Number(AT_S.trade_pnl||0).toFixed(2)+' | Funding: '+(AT_S.funding_total>=0?'+':'')+Number(AT_S.funding_total||0).toFixed(2));
+  setPnl('at2-sd','at2-sds',AT_S.today_pnl,(AT_S.today_trades||0)+' cierres hoy');
+  const atBal2=AT_S.account_balance;const at2dpct=document.getElementById('at2-sg');
+  if(at2dpct&&atBal2&&atBal2>0&&AT_S.today_pnl!==undefined){const tp=(AT_S.today_pnl/atBal2)*100;const ep=document.getElementById('at2-sgs');if(ep)ep.textContent='Hoy: '+(tp>=0?'+':'')+tp.toFixed(2)+'% | Capital: $'+Number(atBal2).toFixed(2);}
+  const fe=document.getElementById('at2-sf');
+  if(fe&&AT_S.funding_total!==undefined){fe.textContent=(AT_S.funding_total>=0?'+':'')+Number(AT_S.funding_total).toFixed(4)+' USDC';fe.className='sval '+(AT_S.funding_total>0?'pos':AT_S.funding_total<0?'neg':'neu');}
+  const wr=AT_S.win_rate;const we=document.getElementById('at2-sw');
+  if(we){we.textContent=wr!==undefined?wr+'%':'&#8212;';we.className='sval '+(wr>=50?'pos':wr!==undefined&&wr<50?'neg':'');}
+  const wse=document.getElementById('at2-sws');if(wse)wse.textContent=wr!==undefined?(AT_S.wins||0)+' ganad. / '+(AT_S.losses||0)+' perd.':'&#8212;';
+  const bal=AT_S.account_balance;
+  const be=document.getElementById('at2-bal');if(be&&bal){be.textContent='$'+Number(bal).toFixed(2)+' USDC';be.className='sval neu';}
+  const ge=document.getElementById('at2-sg');
+  if(ge&&bal&&bal>0&&AT_S.total_pnl!==undefined){const pct=(AT_S.total_pnl/bal)*100;ge.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%';ge.className='sval '+(pct>0?'pos':pct<0?'neg':'neu');const gs=document.getElementById('at2-sgs');if(gs)gs.textContent='Capital: $'+Number(bal).toFixed(2);}
+  const now=Date.now();
+  const p7=AT_T.filter(t=>t.pnl!==null&&pts(t.ts)>=(now-7*86400000)).reduce((a,t)=>a+t.pnl,0);
+  const p30=AT_T.filter(t=>t.pnl!==null&&pts(t.ts)>=(now-30*86400000)).reduce((a,t)=>a+t.pnl,0);
+  setPnl('at2-s7','at2-s7s',p7,'ultimos 7 dias');setPnl('at2-s30','at2-s30s',p30,'ultimos 30 dias');
+}
+
+function atFiltered(){
+  const sym=document.getElementById('at-fsym').value.toLowerCase();
+  const side=document.getElementById('at-fside').value;
+  const days=parseInt(document.getElementById('at-fdays').value)||0;
+  return AT_T.filter(t=>{
+    if(sym&&!(t.symbol||'').toLowerCase().includes(sym))return false;
+    if(side&&t.side!==side)return false;
+    if(days>0){const d=pts(t.ts);const cutoff=new Date();cutoff.setDate(cutoff.getDate()-days);if(d<cutoff)return false;}
+    return true;
+  });
+}
+
+function atRenderTable(){
+  const f=atFiltered();const b=document.getElementById('at-tbody');
+  if(!f.length){b.innerHTML='<tr><td colspan="3" class="empty"><i class="ti ti-chart-candle"></i>'+(AT_T.length?'Sin resultados.':'Cargando...')+'</td></tr>';return;}
+  b.innerHTML=f.map(t=>{
+    const pv=t.pnl;const pc=pv>0?'pos':pv<0?'neg':'neu';
+    const ps=pv!==null?'<span class="'+pc+'">'+(pv>=0?'+':'')+Number(pv).toFixed(4)+' U</span>':'&#8212;';
+    const dt=pts(t.ts);
+    const ds=isNaN(dt)?t.ts:dt.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'2-digit'})+' '+dt.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+    return'<tr><td style="font-size:11px;color:var(--text2);white-space:nowrap;">'+ds+'</td><td><strong>'+t.symbol+'</strong></td><td>'+ps+'</td></tr>';
+  }).join('');
+}
+
+function atRenderPositions(){
+  const pos=AT_S.positions||[];const c=document.getElementById('at-pos-cont');
+  if(!pos.length){c.innerHTML='<p style="color:var(--text3);">Sin posiciones abiertas.</p>';return;}
+  c.innerHTML=pos.map(p=>{const upnl=parseFloat(p.unrealized_pnl||0);const lev=p.leverage||1;
+    return'<div class="pc"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><strong>'+p.symbol+'</strong><div style="display:flex;gap:6px;"><span style="font-size:11px;background:var(--bg2);padding:1px 6px;border-radius:20px;">'+lev+'x</span><span class="nav-badge '+(p.side==='long'?'bok':'berr')+'">'+p.side.toUpperCase()+'</span></div></div>'
+    +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px;">'
+    +'<div><div style="color:var(--text3);">Tamano</div><div style="font-weight:600;">'+Number(p.size||0).toFixed(4)+'</div></div>'
+    +'<div><div style="color:var(--text3);">Entrada</div><div style="font-weight:600;">$'+Number(p.avg_entry||0).toFixed(2)+'</div></div>'
+    +'<div><div style="color:var(--text3);">Liq.</div><div>'+(p.liquidation_price?'$'+Number(p.liquidation_price).toFixed(2):'&#8212;')+'</div></div>'
+    +'<div><div style="color:var(--text3);">P&L no realiz.</div><div class="'+(upnl>=0?'pos':'neg')+'" style="font-weight:700;">'+(upnl>=0?'+':'')+upnl.toFixed(4)+' U</div></div>'
+    +'</div></div>';}).join('');
+}
+
+// ── ASTER CSV ──
 async function asterUploadCsv(e){
   const file=e.target.files[0];if(!file)return;
   const u=getUrl();if(!u){alert('Conecta el servidor primero.');return;}
