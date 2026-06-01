@@ -267,6 +267,7 @@ tbody tr:hover td{background:var(--bg2);}
         <button class="itab" id="ltab-bycoin" onclick="ltShowTab('bycoin')"><i class="ti ti-coin"></i> X Moneda</button>
         <button class="itab" id="ltab-daily" onclick="ltShowTab('daily')"><i class="ti ti-calendar"></i> Diario</button>
         <button class="itab" id="ltab-chart" onclick="ltShowTab('chart')"><i class="ti ti-chart-line"></i> Grafica</button>
+        <button class="itab" id="ltab-monthly" onclick="ltShowTab('monthly')"><i class="ti ti-calendar-month"></i> PNL X Mes</button>
       </div>
       <div class="ipane on" id="lt-history">
         <div class="frow">
@@ -292,6 +293,15 @@ tbody tr:hover td{background:var(--bg2);}
       <div class="ipane" id="lt-chart">
         <div class="card"><div class="cwrap"><canvas id="lt-pnlChart" role="img" aria-label="P&L Lighter">Sin datos</canvas></div></div>
         <div class="card" style="margin-top:1rem;"><div class="cwrap" style="height:180px;"><canvas id="lt-distChart" role="img" aria-label="Win/loss Lighter">Sin datos</canvas></div></div>
+        <div class="ipane" id="lt-monthly">
+          <div class="card"><div class="cb">
+            <div class="ox"><table>
+              <thead><tr><th>Mes</th><th>Trades</th><th>P&L Trades</th><th>Funding</th><th>P&L Total</th><th>% cuenta</th><th>WR</th></tr></thead>
+              <tbody id="lt-monthly-body"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+            </table></div>
+          </div></div>
+          <div class="card" style="margin-top:1rem;"><div class="cwrap" style="height:260px;"><canvas id="lt-monthlyChart" role="img" aria-label="PNL mensual Lighter">Sin datos</canvas></div></div>
+        </div>
       </div>
     </div>
 
@@ -704,6 +714,62 @@ function renderDailyView(trades,chartId,bodyId,chartRef,accountBal){
     const pctAccStr=pctAcc!==null?'<span class="'+pc+'">'+(pctAcc>=0?'+':'')+pctAcc.toFixed(2)+'%</span>':'&#8212;';
     const cumVal=cum;cum-=d.pnl;return '<tr><td style="white-space:nowrap;">'+d.key+'</td><td>'+d.count+'</td><td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(4)+' U</span></td><td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td><td>'+pctAccStr+'</td><td><span class="'+(cumVal>=0?'pos':'neg')+'">'+(cumVal>=0?'+':'')+cumVal.toFixed(2)+' U</span></td><td>'+wr+'%</td></tr>';
   }).join('');
+}
+
+function ltRenderMonthly(){
+  const closes=LT_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const fundingByMonth={};
+  LT.funding_fees&&LT.funding_fees.forEach&&LT.funding_fees.forEach(f=>{
+    if(!f.ts)return;
+    const k=new Date(parseInt(f.ts)).toISOString().slice(0,7);
+    fundingByMonth[k]=(fundingByMonth[k]||0)+(f.payment||0);
+  });
+  const map={};
+  closes.forEach(t=>{
+    const k=pts(t.ts).toISOString().slice(0,7);
+    if(!map[k])map[k]={key:k,pnl:0,count:0,wins:0};
+    map[k].count++;map[k].pnl+=t.pnl;
+    if(t.pnl>0)map[k].wins++;
+  });
+  // Also add months that only have funding
+  Object.keys(fundingByMonth).forEach(k=>{if(!map[k])map[k]={key:k,pnl:0,count:0,wins:0};});
+  const months=Object.values(map).sort((a,b)=>b.key.localeCompare(a.key));
+  const bal=LT.account_balance||0;
+  const body=document.getElementById('lt-monthly-body');
+  if(!months.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
+  body.innerHTML=months.map(m=>{
+    const fund=fundingByMonth[m.key]||0;
+    const total=m.pnl+fund;
+    const pc=total>0?'pos':total<0?'neg':'neu';
+    const tp=m.pnl>0?'pos':m.pnl<0?'neg':'neu';
+    const fp=fund>0?'pos':fund<0?'neg':'neu';
+    const wr=m.count?Math.round(m.wins/m.count*100):0;
+    const pctAcc=bal>0?((total/bal)*100):null;
+    const pctStr=pctAcc!==null?'<span class="'+pc+'">'+(pctAcc>=0?'+':'')+pctAcc.toFixed(2)+'%</span>':'&#8212;';
+    return '<tr>'
+      +'<td style="font-weight:600;">'+m.key+'</td>'
+      +'<td style="text-align:center;">'+m.count+'</td>'
+      +'<td><span class="'+tp+'">'+(m.pnl>=0?'+':'')+m.pnl.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+pc+'">'+(total>=0?'+':'')+total.toFixed(4)+' U</span></td>'
+      +'<td>'+pctStr+'</td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+  // Chart
+  const last12=[...months].sort((a,b)=>a.key.localeCompare(b.key)).slice(-12);
+  if(charts['lt-monthly'])charts['lt-monthly'].destroy();
+  charts['lt-monthly']=new Chart(document.getElementById('lt-monthlyChart').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:last12.map(m=>m.key.slice(0,7)),
+      datasets:[
+        {label:'Trades',data:last12.map(m=>parseFloat(m.pnl.toFixed(4))),backgroundColor:last12.map(m=>m.pnl>=0?'#1a1a18CC':'#E24B4ACC'),borderRadius:3},
+        {label:'Funding',data:last12.map(m=>parseFloat((fundingByMonth[m.key]||0).toFixed(4))),backgroundColor:'#1D9E7566',borderRadius:3}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:true,labels:{color:'var(--text1)',font:{size:11}}}},scales:{y:{stacked:false,ticks:{callback:v=>(v>=0?'+':'')+v.toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
+  });
 }
 
 function ltRenderDaily(){renderDailyView(LT_T,'lt-dailyChart','lt-daily-body','lt-daily',LT.account_balance);}
