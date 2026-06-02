@@ -284,7 +284,7 @@ tbody tr:hover td{background:var(--bg2);}
     <div class="coin-grid" id="coin-grid"><p style="color:var(--text3);">Sin datos.</p></div>
   </div></div>
   <div class="card"><div class="cb"><div class="ox">
-    <table><thead><tr><th>Mercado</th><th>Cierres</th><th>P&amp;L</th><th>% del total</th><th>Win rate</th><th>Mejor</th><th>Peor</th></tr></thead>
+    <table><thead><tr><th>Mercado</th><th>Cierres</th><th>P&amp;L trades</th><th>Funding</th><th>P&amp;L total</th><th>% del total</th><th>WR</th></tr></thead>
     <tbody id="coin-table"></tbody></table>
   </div></div></div>
 </div>
@@ -539,7 +539,7 @@ function renderByCoin(){
   const by=S.by_symbol||[];
   if(!by.length){document.getElementById('coin-grid').innerHTML='<p style="color:var(--text3);">Sin datos.</p>';document.getElementById('coin-table').innerHTML='';return;}
   const sorted=[...by].sort((a,b)=>b.pnl-a.pnl);
-  const totalPnl=sorted.reduce((a,c)=>a+c.pnl,0);
+  const totalPnl=sorted.reduce((a,c)=>a+(c.total_pnl!==undefined?c.total_pnl:(c.pnl+(c.funding||0))),0);
   document.getElementById('coin-grid').innerHTML=sorted.map(c=>{
     const pc=c.pnl>0?'pos':c.pnl<0?'neg':'neu';
     const wr=c.trades>0?Math.round((c.wins||0)/c.trades*100):0;
@@ -552,7 +552,17 @@ function renderByCoin(){
     const pct=totalPnl!==0?((c.pnl/Math.abs(totalPnl))*100):0;
     const best=c.best!==null?'<span class="pos">+'+Number(c.best).toFixed(2)+'</span>':'&#8212;';
     const worst=c.worst!==null?'<span class="neg">'+Number(c.worst).toFixed(2)+'</span>':'&#8212;';
-    return'<tr><td><strong>'+c.symbol+'</strong></td><td>'+c.trades+'</td><td><span class="'+pc+'">'+(c.pnl>=0?'+':'')+Number(c.pnl).toFixed(2)+' U</span></td><td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td><td>'+wr+'%</td><td>'+best+'</td><td>'+worst+'</td></tr>';
+    const fund=c.funding||0;
+    const totalPnlRow=c.total_pnl!==undefined?c.total_pnl:(c.pnl+fund);
+    const tpc=totalPnlRow>0?'pos':totalPnlRow<0?'neg':'neu';
+    const fp=fund>0?'pos':fund<0?'neg':'neu';
+    const pctTotal=totalPnl!==0?((totalPnlRow/Math.abs(totalPnl))*100):0;
+    return'<tr><td><strong>'+c.symbol+'</strong></td><td>'+c.trades+'</td>'
+      +'<td><span class="'+pc+'">'+(c.pnl>=0?'+':'')+Number(c.pnl).toFixed(2)+' U</span></td>'
+      +'<td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+tpc+'">'+(totalPnlRow>=0?'+':'')+Number(totalPnlRow).toFixed(2)+' U</span></td>'
+      +'<td><span class="'+tpc+'">'+(pctTotal>=0?'+':'')+pctTotal.toFixed(1)+'%</span></td>'
+      +'<td>'+wr+'%</td></tr>';
   }).join('');
 }
 
