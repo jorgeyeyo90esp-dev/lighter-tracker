@@ -272,7 +272,7 @@ function updateHeader(){
   const loading=S.loading||!S.initial_load_done;
   document.getElementById('badge').textContent=loading?'Cargando...':(S.connected?'En vivo':'Servidor OK');
   document.getElementById('badge').className='badge '+(loading?'bwarn':S.connected?'bok':'bwarn');
-  document.getElementById('sub').textContent=loading?'Cargando historial...':S.total_trades+' trades';
+  document.getElementById('sub').textContent=loading?'Cargando historial...':(S.closed_trades||0)+' trades cerrados';
 }
 
 function showPane(t){
