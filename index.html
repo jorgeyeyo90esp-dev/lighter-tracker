@@ -449,7 +449,10 @@ function renderMonthly(){
   const fundByMonth={};
   (window.FUNDING_LIST||[]).forEach(f=>{
     if(!f.ts) return;
-    const k=pts(f.ts).toISOString().slice(0,7);
+    const ts=parseInt(f.ts);
+    // If ts < year 2000 in ms, it's in seconds - convert
+    const tsMs=ts<1000000000000?ts*1000:ts;
+    const k=new Date(tsMs).toISOString().slice(0,7);
     fundByMonth[k]=(fundByMonth[k]||0)+(f.payment||0);
   });
   Object.keys(fundByMonth).forEach(k=>{if(!map[k])map[k]={key:k,pnl:0,count:0,wins:0};});
