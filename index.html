@@ -341,8 +341,9 @@ function renderStats(){
   document.getElementById('sws').textContent=wr!==undefined?(S.wins||0)+' ganad. / '+(S.losses||0)+' perd.':'&#8212;';
   const ge=document.getElementById('sg');
   const bal=S.account_balance;
-  if(bal&&bal>0&&S.total_pnl!==undefined){
-    const pct=(S.total_pnl/bal)*100;
+  const INITIAL_CAPITAL=815;
+  if(S.total_pnl!==undefined){
+    const pct=(S.total_pnl/INITIAL_CAPITAL)*100;
     ge.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%';
     ge.className='sval '+(pct>0?'pos':pct<0?'neg':'neu');
     document.getElementById('sgs').textContent='Capital: $'+Number(bal).toLocaleString('es-ES',{maximumFractionDigits:2});
