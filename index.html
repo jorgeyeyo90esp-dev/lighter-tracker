@@ -5,7 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lighter Tracker</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js">
+function setTheme(t){
+  if(t==='light') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('lt-theme',t);
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('tbtn-'+t);
+  if(btn) btn.classList.add('active');
+}
+(function(){
+  const t=localStorage.getItem('lt-theme')||'light';
+  if(t!=='light') document.documentElement.setAttribute('data-theme',t);
+  document.addEventListener('DOMContentLoaded',function(){
+    document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+    const btn=document.getElementById('tbtn-'+t);
+    if(btn) btn.classList.add('active');
+  });
+})();
+
+</script>
 <style>
 :root{--bg:#fff;--bg2:#f6f6f4;--bg3:#efefec;--text:#1a1a18;--text2:#6b6b67;--text3:#9b9b96;--bo:rgba(0,0,0,.10);--bo2:rgba(0,0,0,.18);--green:#1D9E75;--gbg:#E1F5EE;--gtxt:#085041;--red:#E24B4A;--rbg:#FCEBEB;--rtxt:#501313;--r:8px;--rl:12px;}
 @media(prefers-color-scheme:dark){:root{--bg:#1c1c1a;--bg2:#242422;--bg3:#2c2c2a;--text:#f0f0ec;--text2:#a0a09c;--text3:#6a6a66;--bo:rgba(255,255,255,.10);--bo2:rgba(255,255,255,.18);--gbg:#04342C;--gtxt:#9FE1CB;--rbg:#501313;--rtxt:#F7C1C1;}}
@@ -65,11 +84,33 @@ tbody tr:hover td{background:var(--bg2);}
 .pc{background:var(--bg2);border-radius:var(--r);padding:12px 14px;margin-bottom:8px;border:.5px solid var(--bo);}
 .spin{display:inline-block;width:12px;height:12px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:5px;}
 @keyframes spin{to{transform:rotate(360deg);}}
+
+[data-theme="dark"]{--bg:#1c1c1a;--bg2:#242422;--bg3:#2c2c2a;--text:#f0f0ec;--text2:#a0a09c;--text3:#6a6a66;--bo:rgba(255,255,255,.10);--bo2:rgba(255,255,255,.18);--gbg:#04342C;--gtxt:#9FE1CB;--rbg:#501313;--rtxt:#F7C1C1;}
+[data-theme="green"]{--bg:#0d1a12;--bg2:#122018;--bg3:#0a1510;--text:#c8f0d4;--text2:#6aaa7c;--text3:#3a6a48;--bo:rgba(80,180,100,.12);--bo2:rgba(80,180,100,.25);--green:#2dd882;--gbg:#0a2a18;--gtxt:#6ee7b7;--red:#ff6b6b;--rbg:#2a0f0f;--rtxt:#fca5a5;}
+[data-theme="blue"]{--bg:#0d1421;--bg2:#121c2e;--bg3:#080f1a;--text:#dce8f8;--text2:#7a9bc0;--text3:#4a6a8a;--bo:rgba(100,150,220,.12);--bo2:rgba(100,150,220,.25);--green:#38bdf8;--gbg:#0a1a2e;--gtxt:#7dd3fc;--red:#f87171;--rbg:#2a0f0f;--rtxt:#fca5a5;}
+[data-theme="warm"]{--bg:#faf6f0;--bg2:#f2ebe0;--bg3:#e8ddd0;--text:#2a1f14;--text2:#7a6048;--text3:#a08868;--bo:rgba(120,80,40,.10);--bo2:rgba(120,80,40,.20);--green:#2a7a4a;--gbg:#e0f0e8;--gtxt:#0a4a28;--red:#c04040;--rbg:#fce8e8;--rtxt:#601010;}
+.theme-bar{display:flex;align-items:center;gap:6px;padding:6px 16px 10px;flex-wrap:wrap;}
+.theme-bar span{font-size:11px;color:var(--text3);margin-right:2px;}
+.tbtn{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:border-color .15s;flex-shrink:0;padding:0;}
+.tbtn:hover,.tbtn.active{border-color:var(--text);}
+.tbtn-light{background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.15);}
+.tbtn-dark{background:#1c1c1a;box-shadow:0 0 0 1px rgba(255,255,255,.15);}
+.tbtn-green{background:linear-gradient(135deg,#0d1a12,#2dd882);}
+.tbtn-blue{background:linear-gradient(135deg,#0d1421,#38bdf8);}
+.tbtn-warm{background:#f2ebe0;box-shadow:0 0 0 1px rgba(120,80,40,.25);}
 </style>
 </head>
 <body>
 <div class="wrap">
 
+<div class="theme-bar">
+  <span>Tema:</span>
+  <button class="tbtn tbtn-light active" id="tbtn-light" onclick="setTheme('light')" title="Claro"></button>
+  <button class="tbtn tbtn-dark" id="tbtn-dark" onclick="setTheme('dark')" title="Oscuro"></button>
+  <button class="tbtn tbtn-green" id="tbtn-green" onclick="setTheme('green')" title="Verde"></button>
+  <button class="tbtn tbtn-blue" id="tbtn-blue" onclick="setTheme('blue')" title="Azul"></button>
+  <button class="tbtn tbtn-warm" id="tbtn-warm" onclick="setTheme('warm')" title="Cálido"></button>
+</div>
 <div class="hdr">
   <div class="logo">
     <div class="dot"></div>
@@ -433,6 +474,25 @@ if(savedUrl){
 }else{
   showPane('config');
 }
+
+function setTheme(t){
+  if(t==='light') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme',t);
+  localStorage.setItem('lt-theme',t);
+  document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('tbtn-'+t);
+  if(btn) btn.classList.add('active');
+}
+(function(){
+  const t=localStorage.getItem('lt-theme')||'light';
+  if(t!=='light') document.documentElement.setAttribute('data-theme',t);
+  document.addEventListener('DOMContentLoaded',function(){
+    document.querySelectorAll('.tbtn').forEach(b=>b.classList.remove('active'));
+    const btn=document.getElementById('tbtn-'+t);
+    if(btn) btn.classList.add('active');
+  });
+})();
+
 </script>
 </body>
 </html>
