@@ -295,7 +295,14 @@ function renderStats(){
   document.getElementById('sw').className='sval '+(wr>=50?'pos':wr!==undefined&&wr<50?'neg':'');
   document.getElementById('sws').textContent=wr!==undefined?(S.wins||0)+' ganad. / '+(S.losses||0)+' perd.':'&#8212;';
   const ge=document.getElementById('sg');
-  const capInvertido=getCapitalInicial();
+  const capInvertido=(function(){
+    try{
+      const raw=localStorage.getItem('lt-movimientos');
+      if(!raw) return 815;
+      const movs=JSON.parse(raw);
+      return movs.reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;
+    }catch(e){return 815;}
+  })();
   if(capInvertido>0&&S.total_pnl!==undefined){
     const pct=(S.total_pnl/capInvertido)*100;
     ge.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%';
