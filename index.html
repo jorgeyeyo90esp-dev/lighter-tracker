@@ -130,7 +130,7 @@ tbody tr:hover td{background:var(--bg2);}
   <div class="stat"><div class="slbl">P&amp;L Total</div><div class="sval neu" id="sp">&#8212;</div><div class="ssub" id="sps">trades + funding</div></div>
   <div class="stat"><div class="slbl">P&amp;L Hoy</div><div class="sval neu" id="sd">&#8212;</div><div class="ssub" id="sds">&#8212;</div></div>
   <div class="stat"><div class="slbl">Funding total</div><div class="sval neu" id="sf">&#8212;</div><div class="ssub">fees acumulados</div></div>
-  <div class="stat"><div class="slbl">Win rate</div><div class="sval" id="sw">&#8212;</div><div class="ssub" id="sws">&#8212;</div></div>
+  <div class="stat"><div class="slbl">Total cuenta</div><div class="sval" id="sw">&#8212;</div><div class="ssub" id="sws">depósitos + P&L</div></div>
 </div>
 <div class="stats" style="margin-top:-2px;">
   <div class="stat"><div class="slbl">% Rentabilidad</div><div class="sval neu" id="sg">&#8212;</div><div class="ssub" id="sgs">sobre capital cuenta</div></div>
@@ -192,7 +192,7 @@ tbody tr:hover td{background:var(--bg2);}
     <div class="cwrap" style="height:220px;"><canvas id="dailyChart" role="img" aria-label="P&L diario">Sin datos</canvas></div>
   </div></div>
   <div class="card"><div class="cb"><div class="ox">
-    <table><thead><tr><th>Fecha</th><th>Trades</th><th>P&amp;L dia</th><th>% del total</th><th>Acumulado</th><th>Win rate</th></tr></thead>
+    <table><thead><tr><th>Fecha</th><th>Trades</th><th>P&amp;L dia</th><th>% del total</th><th>% cuenta</th><th>Acumulado</th><th>WR</th></tr></thead>
     <tbody id="daily-body"></tbody></table>
   </div></div></div>
 </div>
@@ -334,10 +334,12 @@ function renderStats(){
   const fv=S.funding_total;
   const fe=document.getElementById('sf');
   if(fv!==undefined){fe.textContent=(fv>=0?'+':'')+Number(fv).toFixed(4)+' USDC';fe.className='sval '+(fv>0?'pos':fv<0?'neg':'neu');}
-  const wr=S.win_rate;
-  document.getElementById('sw').textContent=wr!==undefined?wr+'%':'&#8212;';
-  document.getElementById('sw').className='sval '+(wr>=50?'pos':wr!==undefined&&wr<50?'neg':'');
-  document.getElementById('sws').textContent=wr!==undefined?(S.wins||0)+' ganad. / '+(S.losses||0)+' perd.':'&#8212;';
+  const capTotalInv2=(function(){try{const raw=localStorage.getItem('lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
+  const totalCuenta=capTotalInv2+(S.total_pnl||0);
+  const swEl=document.getElementById('sw');
+  swEl.textContent='$'+totalCuenta.toFixed(2);
+  swEl.className='sval '+(totalCuenta>capTotalInv2?'pos':totalCuenta<capTotalInv2?'neg':'neu');
+  document.getElementById('sws').textContent=(S.total_pnl>=0?'+':'')+Number(S.total_pnl||0).toFixed(2)+' USDC P&L';
   const ge=document.getElementById('sg');
   const capInvertido=(function(){
     try{
@@ -419,7 +421,7 @@ function renderByCoin(){
 
 function renderDaily(){
   const closes=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
-  if(!closes.length){document.getElementById('daily-body').innerHTML='<tr><td colspan="6" class="empty">Sin datos.</td></tr>';return;}
+  if(!closes.length){document.getElementById('daily-body').innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
   const map={};
   closes.forEach(t=>{
     const k=pts(t.ts).toISOString().slice(0,10);
@@ -436,16 +438,22 @@ function renderDaily(){
   });
   const grandTotal=days.reduce((a,d)=>a+d.pnl,0);
   let cum=grandTotal;
+  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem('lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
+  const sortedAsc=[...days].sort((a,b)=>a.key.localeCompare(b.key));
   document.getElementById('daily-body').innerHTML=days.map(d=>{
     const pc=d.pnl>0?'pos':d.pnl<0?'neg':'neu';
     const wr=d.pnls.length?Math.round(d.wins/d.pnls.length*100):0;
     const pct=grandTotal!==0?((d.pnl/Math.abs(grandTotal))*100):0;
+    const balBefore2=INITIAL_CAPITAL+sortedAsc.slice(0,sortedAsc.findIndex(x=>x.key===d.key)).reduce((a,x)=>a+x.pnl,0);
+    const dayPct2=balBefore2>0?(d.pnl/balBefore2)*100:0;
+    const cumVal=cum;cum-=d.pnl;
     const row='<tr><td style="white-space:nowrap;">'+d.key+'</td><td>'+d.count+'</td>'
       +'<td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(4)+' U</span></td>'
       +'<td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td>'
-      +'<td><span class="'+(cum>=0?'pos':'neg')+'">'+(cum>=0?'+':'')+cum.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+pc+'">'+(dayPct2>=0?'+':'')+dayPct2.toFixed(2)+'%</span></td>'
+      +'<td><span class="'+(cumVal>=0?'pos':'neg')+'">'+(cumVal>=0?'+':'')+cumVal.toFixed(2)+' U</span></td>'
       +'<td>'+wr+'%</td></tr>';
-    cum-=d.pnl;return row;
+    return row;
   }).join('');
 }
 
