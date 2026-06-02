@@ -546,6 +546,21 @@ function renderByCoin(){
     const pct=totalPnl!==0?((c.pnl/Math.abs(totalPnl))*100):0;
     return'<div class="coin-card"><div class="cn">'+c.symbol+'</div><div class="cp '+pc+'">'+(c.pnl>=0?'+':'')+Number(c.pnl).toFixed(2)+' U</div><div class="cs">'+wr+'% WR | '+(pct>=0?'+':'')+pct.toFixed(1)+'% del total</div></div>';
   }).join('');
+  // Add funding fee as separate row
+  const fundingTotal=S.funding_total||0;
+  const fundRow=(()=>{
+    if(!fundingTotal) return '';
+    const fp=fundingTotal>=0?'pos':'neg';
+    return '<tr style="border-top:1.5px solid var(--bo2);">'
+      +'<td><strong style="color:var(--text2);">Funding fees</strong></td>'
+      +'<td style="color:var(--text3);">—</td>'
+      +'<td><span class="'+fp+'">'+(fundingTotal>=0?'+':'')+fundingTotal.toFixed(4)+' U</span></td>'
+      +'<td style="color:var(--text3);">—</td>'
+      +'<td style="color:var(--text3);">—</td>'
+      +'<td style="color:var(--text3);">—</td>'
+      +'<td style="color:var(--text3);">—</td>'
+      +'</tr>';
+  })();
   document.getElementById('coin-table').innerHTML=sorted.map(c=>{
     const pc=c.pnl>0?'pos':c.pnl<0?'neg':'neu';
     const wr=c.trades>0?Math.round((c.wins||0)/c.trades*100):0;
@@ -553,7 +568,7 @@ function renderByCoin(){
     const best=c.best!==null?'<span class="pos">+'+Number(c.best).toFixed(2)+'</span>':'&#8212;';
     const worst=c.worst!==null?'<span class="neg">'+Number(c.worst).toFixed(2)+'</span>':'&#8212;';
     return'<tr><td><strong>'+c.symbol+'</strong></td><td>'+c.trades+'</td><td><span class="'+pc+'">'+(c.pnl>=0?'+':'')+Number(c.pnl).toFixed(2)+' U</span></td><td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td><td>'+wr+'%</td><td>'+best+'</td><td>'+worst+'</td></tr>';
-  }).join('');
+  }).join('')+fundRow;
 }
 
 function renderDaily(){
