@@ -28,6 +28,109 @@ function setTheme(t){
   });
 })();
 
+
+// ── CAPITAL / MOVIMIENTOS ──
+const MOV_KEY = 'lt-movimientos';
+const DEFAULT_MOVIMIENTOS = [
+  {id:1,tipo:'deposit',amount:20,date:'2026-05-06'},
+  {id:2,tipo:'deposit',amount:30,date:'2026-05-06'},
+  {id:3,tipo:'deposit',amount:50,date:'2026-05-07'},
+  {id:4,tipo:'deposit',amount:100,date:'2026-05-07'},
+  {id:5,tipo:'deposit',amount:340,date:'2026-05-09'},
+  {id:6,tipo:'deposit',amount:200,date:'2026-05-12'},
+  {id:7,tipo:'deposit',amount:75,date:'2026-05-13'}
+];
+
+function loadMovimientos(){
+  const raw = localStorage.getItem(MOV_KEY);
+  if(raw) return JSON.parse(raw);
+  // First time - load defaults
+  localStorage.setItem(MOV_KEY, JSON.stringify(DEFAULT_MOVIMIENTOS));
+  return DEFAULT_MOVIMIENTOS;
+}
+
+function saveMovimientos(movs){
+  localStorage.setItem(MOV_KEY, JSON.stringify(movs));
+}
+
+function getCapitalInicial(){
+  const movs = loadMovimientos().sort((a,b)=>a.date.localeCompare(b.date));
+  let cap = 0;
+  movs.forEach(m => {
+    if(m.tipo==='deposit') cap += m.amount;
+    else cap -= m.amount;
+  });
+  return cap;
+}
+
+function getCapitalAtDate(dateStr){
+  // Returns net capital invested up to and including dateStr
+  const movs = loadMovimientos().filter(m=>m.date<=dateStr).sort((a,b)=>a.date.localeCompare(b.date));
+  let cap = 0;
+  movs.forEach(m => { if(m.tipo==='deposit') cap+=m.amount; else cap-=m.amount; });
+  return cap || 815; // fallback
+}
+
+function addMovimiento(){
+  const tipo = document.getElementById('mov-tipo').value;
+  const amount = parseFloat(document.getElementById('mov-amount').value);
+  const date = document.getElementById('mov-date').value;
+  if(!amount||amount<=0||!date){alert('Rellena importe y fecha.');return;}
+  const movs = loadMovimientos();
+  movs.push({id:Date.now(),tipo,amount,date});
+  saveMovimientos(movs);
+  document.getElementById('mov-amount').value='';
+  renderMovimientos();
+}
+
+function deleteMovimiento(id){
+  const movs = loadMovimientos().filter(m=>m.id!==id);
+  saveMovimientos(movs);
+  renderMovimientos();
+}
+
+function renderMovimientos(){
+  const movs = loadMovimientos().sort((a,b)=>a.date.localeCompare(b.date));
+  const body = document.getElementById('mov-body');
+  if(!body) return;
+  if(!movs.length){
+    body.innerHTML='<tr><td colspan="5" class="empty">Sin movimientos.</td></tr>';
+    return;
+  }
+  let cumCap=0;
+  let totalDep=0, totalRet=0;
+  body.innerHTML = movs.map(m=>{
+    if(m.tipo==='deposit'){cumCap+=m.amount;totalDep+=m.amount;}
+    else{cumCap-=m.amount;totalRet+=m.amount;}
+    const tc=m.tipo==='deposit'?'pos':'neg';
+    const sign=m.tipo==='deposit'?'+':'-';
+    return '<tr>'
+      +'<td>'+m.date+'</td>'
+      +'<td><span class="'+tc+'" style="font-weight:600;">'+( m.tipo==='deposit'?'Depósito':'Retiro')+'</span></td>'
+      +'<td><span class="'+tc+'">'+sign+m.amount.toFixed(2)+' USDC</span></td>'
+      +'<td>'+cumCap.toFixed(2)+' USDC</td>'
+      +'<td><button class="btn bg" style="padding:2px 8px;font-size:11px;" onclick="deleteMovimiento('+m.id+')">✕</button></td>'
+      +'</tr>';
+  }).join('');
+
+  const capNeto = totalDep - totalRet;
+  const elCI = document.getElementById('cap-inicial');
+  const elDep = document.getElementById('cap-depositos');
+  const elRet = document.getElementById('cap-retiros');
+  const elNet = document.getElementById('cap-neto');
+  if(elCI) elCI.textContent = capNeto.toFixed(2)+' USDC';
+  if(elDep) elDep.textContent = totalDep.toFixed(2)+' USDC';
+  if(elRet) elRet.textContent = totalRet.toFixed(2)+' USDC';
+  if(elNet) elNet.textContent = capNeto.toFixed(2)+' USDC';
+}
+
+// Init date picker to today
+document.addEventListener('DOMContentLoaded', function(){
+  const d = document.getElementById('mov-date');
+  if(d) d.valueAsDate = new Date();
+  renderMovimientos();
+});
+
 </script>
 <style>
 :root{--bg:#fff;--bg2:#f6f6f4;--bg3:#efefec;--text:#1a1a18;--text2:#6b6b67;--text3:#9b9b96;--bo:rgba(0,0,0,.10);--bo2:rgba(0,0,0,.18);--green:#1D9E75;--gbg:#E1F5EE;--gtxt:#085041;--red:#E24B4A;--rbg:#FCEBEB;--rtxt:#501313;--r:8px;--rl:12px;}
@@ -193,7 +296,7 @@ tbody tr:hover td{background:var(--bg2);}
     <div class="cwrap" style="height:220px;"><canvas id="dailyChart" role="img" aria-label="P&L diario">Sin datos</canvas></div>
   </div></div>
   <div class="card"><div class="cb"><div class="ox">
-    <table><thead><tr><th>Fecha</th><th>Trades</th><th>P&amp;L dia</th><th>% del total</th><th>Acumulado</th><th>Win rate</th></tr></thead>
+    <table><thead><tr><th>Fecha</th><th>Trades</th><th>P&amp;L dia</th><th>% PNL total</th><th>% cuenta día</th><th>Acumulado</th><th>WR</th></tr></thead>
     <tbody id="daily-body"></tbody></table>
   </div></div></div>
 </div>
@@ -217,6 +320,47 @@ tbody tr:hover td{background:var(--bg2);}
       <button class="btn bg" onclick="testConn()"><i class="ti ti-wifi"></i> Test</button>
     </div>
     <div id="test-res" style="margin-top:8px;font-size:13px;"></div>
+  </div></div>
+
+  <!-- DEPOSITOS Y RETIROS -->
+  <div class="card" style="margin-top:1rem;"><div class="cb">
+    <p style="font-size:15px;font-weight:600;margin-bottom:4px;">Capital inicial &amp; movimientos</p>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:14px;">El capital inicial se usa para calcular la rentabilidad y el % diario de la cuenta.</p>
+
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:16px;">
+      <div class="field" style="margin:0;flex:1;min-width:120px;">
+        <label>Tipo</label>
+        <select id="mov-tipo" style="font-size:13px;padding:7px 10px;border-radius:var(--r);border:.5px solid var(--bo2);background:var(--bg2);color:var(--text);outline:none;">
+          <option value="deposit">Depósito</option>
+          <option value="withdraw">Retiro</option>
+        </select>
+      </div>
+      <div class="field" style="margin:0;flex:1;min-width:120px;">
+        <label>Importe (USDC)</label>
+        <input type="number" id="mov-amount" placeholder="0.00" min="0" step="0.01">
+      </div>
+      <div class="field" style="margin:0;flex:1;min-width:130px;">
+        <label>Fecha</label>
+        <input type="date" id="mov-date">
+      </div>
+      <div class="field" style="margin:0;flex:0;">
+        <label>&nbsp;</label>
+        <button class="btn bp" onclick="addMovimiento()"><i class="ti ti-plus"></i> Añadir</button>
+      </div>
+    </div>
+
+    <div class="ox">
+      <table id="mov-table">
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Importe</th><th>Capital acum.</th><th></th></tr></thead>
+        <tbody id="mov-body"><tr><td colspan="5" class="empty">Sin movimientos registrados.</td></tr></tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;padding:10px 12px;background:var(--bg2);border-radius:var(--r);display:flex;gap:24px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:var(--text2);">Capital inicial: <strong id="cap-inicial">—</strong></span>
+      <span style="font-size:12px;color:var(--text2);">Total depositado: <strong id="cap-depositos">—</strong></span>
+      <span style="font-size:12px;color:var(--text2);">Total retirado: <strong id="cap-retiros">—</strong></span>
+      <span style="font-size:12px;color:var(--text2);">Capital neto invertido: <strong id="cap-neto">—</strong></span>
+    </div>
   </div></div>
 </div>
 
@@ -341,7 +485,7 @@ function renderStats(){
   document.getElementById('sws').textContent=wr!==undefined?(S.wins||0)+' ganad. / '+(S.losses||0)+' perd.':'&#8212;';
   const ge=document.getElementById('sg');
   const bal=S.account_balance;
-  const INITIAL_CAPITAL=815;
+  const INITIAL_CAPITAL=getCapitalInicial();
   if(S.total_pnl!==undefined){
     const pct=(S.total_pnl/INITIAL_CAPITAL)*100;
     ge.textContent=(pct>=0?'+':'')+pct.toFixed(2)+'%';
@@ -414,7 +558,7 @@ function renderByCoin(){
 
 function renderDaily(){
   const closes=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
-  if(!closes.length){document.getElementById('daily-body').innerHTML='<tr><td colspan="6" class="empty">Sin datos.</td></tr>';return;}
+  if(!closes.length){document.getElementById('daily-body').innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
   const map={};
   closes.forEach(t=>{
     const k=pts(t.ts).toISOString().slice(0,10);
@@ -429,18 +573,30 @@ function renderDaily(){
     data:{labels:last30.map(d=>d.key.slice(5)),datasets:[{label:'P&L',data:last30.map(d=>parseFloat(d.pnl.toFixed(4))),backgroundColor:last30.map(d=>d.pnl>=0?'#1D9E7599':'#E24B4A99'),borderRadius:3}]},
     options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+v.toFixed(0),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{autoSkip:true,maxTicksLimit:15,font:{size:10}},grid:{display:false}}}}
   });
+  const INITIAL_CAPITAL=getCapitalInicial();
   const grandTotal=days.reduce((a,d)=>a+d.pnl,0);
   let cum=grandTotal;
+  // For each day, account balance before that day = INITIAL_CAPITAL + accumulated PnL before that day
+  const sortedAsc=[...days].sort((a,b)=>a.key.localeCompare(b.key));
+  let runningPnl=0;
+  const balBeforeMap={};
+  sortedAsc.forEach(d=>{
+    balBeforeMap[d.key]=INITIAL_CAPITAL+runningPnl;
+    runningPnl+=d.pnl;
+  });
   document.getElementById('daily-body').innerHTML=days.map(d=>{
     const pc=d.pnl>0?'pos':d.pnl<0?'neg':'neu';
     const wr=d.pnls.length?Math.round(d.wins/d.pnls.length*100):0;
     const pct=grandTotal!==0?((d.pnl/Math.abs(grandTotal))*100):0;
-    const row='<tr><td style="white-space:nowrap;">'+d.key+'</td><td>'+d.count+'</td>'
+    const balBefore=balBeforeMap[d.key]||getCapitalAtDate(d.key);
+    const dayPct=(d.pnl/balBefore)*100;
+    const cumVal=cum;cum-=d.pnl;
+    return '<tr><td style="white-space:nowrap;">'+d.key+'</td><td>'+d.count+'</td>'
       +'<td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(4)+' U</span></td>'
       +'<td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td>'
-      +'<td><span class="'+(cum>=0?'pos':'neg')+'">'+(cum>=0?'+':'')+cum.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+pc+'">'+(dayPct>=0?'+':'')+dayPct.toFixed(2)+'%</span></td>'
+      +'<td><span class="'+(cumVal>=0?'pos':'neg')+'">'+(cumVal>=0?'+':'')+cumVal.toFixed(2)+' U</span></td>'
       +'<td>'+wr+'%</td></tr>';
-    cum-=d.pnl;return row;
   }).join('');
 }
 
@@ -491,6 +647,109 @@ function setTheme(t){
     if(btn) btn.classList.add('active');
   });
 })();
+
+
+// ── CAPITAL / MOVIMIENTOS ──
+const MOV_KEY = 'lt-movimientos';
+const DEFAULT_MOVIMIENTOS = [
+  {id:1,tipo:'deposit',amount:20,date:'2026-05-06'},
+  {id:2,tipo:'deposit',amount:30,date:'2026-05-06'},
+  {id:3,tipo:'deposit',amount:50,date:'2026-05-07'},
+  {id:4,tipo:'deposit',amount:100,date:'2026-05-07'},
+  {id:5,tipo:'deposit',amount:340,date:'2026-05-09'},
+  {id:6,tipo:'deposit',amount:200,date:'2026-05-12'},
+  {id:7,tipo:'deposit',amount:75,date:'2026-05-13'}
+];
+
+function loadMovimientos(){
+  const raw = localStorage.getItem(MOV_KEY);
+  if(raw) return JSON.parse(raw);
+  // First time - load defaults
+  localStorage.setItem(MOV_KEY, JSON.stringify(DEFAULT_MOVIMIENTOS));
+  return DEFAULT_MOVIMIENTOS;
+}
+
+function saveMovimientos(movs){
+  localStorage.setItem(MOV_KEY, JSON.stringify(movs));
+}
+
+function getCapitalInicial(){
+  const movs = loadMovimientos().sort((a,b)=>a.date.localeCompare(b.date));
+  let cap = 0;
+  movs.forEach(m => {
+    if(m.tipo==='deposit') cap += m.amount;
+    else cap -= m.amount;
+  });
+  return cap;
+}
+
+function getCapitalAtDate(dateStr){
+  // Returns net capital invested up to and including dateStr
+  const movs = loadMovimientos().filter(m=>m.date<=dateStr).sort((a,b)=>a.date.localeCompare(b.date));
+  let cap = 0;
+  movs.forEach(m => { if(m.tipo==='deposit') cap+=m.amount; else cap-=m.amount; });
+  return cap || 815; // fallback
+}
+
+function addMovimiento(){
+  const tipo = document.getElementById('mov-tipo').value;
+  const amount = parseFloat(document.getElementById('mov-amount').value);
+  const date = document.getElementById('mov-date').value;
+  if(!amount||amount<=0||!date){alert('Rellena importe y fecha.');return;}
+  const movs = loadMovimientos();
+  movs.push({id:Date.now(),tipo,amount,date});
+  saveMovimientos(movs);
+  document.getElementById('mov-amount').value='';
+  renderMovimientos();
+}
+
+function deleteMovimiento(id){
+  const movs = loadMovimientos().filter(m=>m.id!==id);
+  saveMovimientos(movs);
+  renderMovimientos();
+}
+
+function renderMovimientos(){
+  const movs = loadMovimientos().sort((a,b)=>a.date.localeCompare(b.date));
+  const body = document.getElementById('mov-body');
+  if(!body) return;
+  if(!movs.length){
+    body.innerHTML='<tr><td colspan="5" class="empty">Sin movimientos.</td></tr>';
+    return;
+  }
+  let cumCap=0;
+  let totalDep=0, totalRet=0;
+  body.innerHTML = movs.map(m=>{
+    if(m.tipo==='deposit'){cumCap+=m.amount;totalDep+=m.amount;}
+    else{cumCap-=m.amount;totalRet+=m.amount;}
+    const tc=m.tipo==='deposit'?'pos':'neg';
+    const sign=m.tipo==='deposit'?'+':'-';
+    return '<tr>'
+      +'<td>'+m.date+'</td>'
+      +'<td><span class="'+tc+'" style="font-weight:600;">'+( m.tipo==='deposit'?'Depósito':'Retiro')+'</span></td>'
+      +'<td><span class="'+tc+'">'+sign+m.amount.toFixed(2)+' USDC</span></td>'
+      +'<td>'+cumCap.toFixed(2)+' USDC</td>'
+      +'<td><button class="btn bg" style="padding:2px 8px;font-size:11px;" onclick="deleteMovimiento('+m.id+')">✕</button></td>'
+      +'</tr>';
+  }).join('');
+
+  const capNeto = totalDep - totalRet;
+  const elCI = document.getElementById('cap-inicial');
+  const elDep = document.getElementById('cap-depositos');
+  const elRet = document.getElementById('cap-retiros');
+  const elNet = document.getElementById('cap-neto');
+  if(elCI) elCI.textContent = capNeto.toFixed(2)+' USDC';
+  if(elDep) elDep.textContent = totalDep.toFixed(2)+' USDC';
+  if(elRet) elRet.textContent = totalRet.toFixed(2)+' USDC';
+  if(elNet) elNet.textContent = capNeto.toFixed(2)+' USDC';
+}
+
+// Init date picker to today
+document.addEventListener('DOMContentLoaded', function(){
+  const d = document.getElementById('mov-date');
+  if(d) d.valueAsDate = new Date();
+  renderMovimientos();
+});
 
 </script>
 </body>
