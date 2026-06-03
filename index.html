@@ -629,7 +629,21 @@ function renderCharts(){
   });
 }
 
-function renderAll(){renderStats();renderTable();}
+function renderAll(){
+  renderStats();
+  renderTable();
+  // Re-render active pane
+  const active=document.querySelector('.pane.on');
+  if(active){
+    const id=active.id.replace('pane-','');
+    if(id==='positions')renderPositions();
+    else if(id==='bycoin')renderByCoin(S.by_symbol||[]);
+    else if(id==='daily')renderDaily();
+    else if(id==='monthly')renderMonthly();
+    else if(id==='daily-asset')renderDailyAsset();
+    else if(id==='chart')renderChart();
+  }
+}
 
 const savedUrl=localStorage.getItem('lt_url');
 if(savedUrl){
