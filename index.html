@@ -101,6 +101,7 @@ tbody tr:hover td{background:var(--bg2);}
 .tbtn-green{background:linear-gradient(135deg,#0d1a12,#2dd882);}
 .tbtn-blue{background:linear-gradient(135deg,#0d1421,#38bdf8);}
 .tbtn-warm{background:#f2ebe0;box-shadow:0 0 0 1px rgba(120,80,40,.25);}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -276,7 +277,9 @@ function testConn(){
 }
 
 async function fetchAll(){
-  const u=getUrl();if(!u)return;
+  const u=getUrl();if(!u){showPane('config');return;}
+  const btn=document.querySelector('[onclick="fetchAll()"]');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> Cargando...';}
   try{
     const [sr,tr,fr]=await Promise.all([fetch(u+'/summary'),fetch(u+'/trades?limit=20000'),fetch(u+'/funding')]);
     if(!sr.ok)throw new Error('HTTP '+sr.status);
@@ -288,7 +291,9 @@ async function fetchAll(){
   }catch(e){
     document.getElementById('badge').textContent='Sin conexion';
     document.getElementById('badge').className='badge berr';
-    document.getElementById('sub').textContent='Error conectando';
+    document.getElementById('sub').textContent='Error: '+e.message;
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-refresh"></i> Actualizar';}
   }
 }
 
