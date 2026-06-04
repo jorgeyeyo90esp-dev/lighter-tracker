@@ -27,6 +27,74 @@ function setTheme(t){
   });
 })();
 
+
+// ── MOVIMIENTOS ──
+const MOV_KEY='lt-movimientos';
+const DEFAULT_MOVIMIENTOS=[
+  {id:1,tipo:'deposit',amount:20,date:'2026-05-06'},
+  {id:2,tipo:'deposit',amount:30,date:'2026-05-06'},
+  {id:3,tipo:'deposit',amount:50,date:'2026-05-07'},
+  {id:4,tipo:'deposit',amount:100,date:'2026-05-07'},
+  {id:5,tipo:'deposit',amount:340,date:'2026-05-09'},
+  {id:6,tipo:'deposit',amount:200,date:'2026-05-12'},
+  {id:7,tipo:'deposit',amount:75,date:'2026-05-13'}
+];
+function loadMovimientos(){
+  const raw=localStorage.getItem(MOV_KEY);
+  if(raw) return JSON.parse(raw);
+  localStorage.setItem(MOV_KEY,JSON.stringify(DEFAULT_MOVIMIENTOS));
+  return DEFAULT_MOVIMIENTOS;
+}
+function saveMovimientos(movs){localStorage.setItem(MOV_KEY,JSON.stringify(movs));}
+function getCapitalInicial(){
+  return loadMovimientos().reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;
+}
+function addMovimiento(){
+  const tipo=document.getElementById('mov-tipo').value;
+  const amount=parseFloat(document.getElementById('mov-amount').value);
+  const date=document.getElementById('mov-date').value;
+  if(!amount||amount<=0||!date){alert('Rellena importe y fecha.');return;}
+  const movs=loadMovimientos();
+  movs.push({id:Date.now(),tipo,amount,date});
+  saveMovimientos(movs);
+  document.getElementById('mov-amount').value='';
+  renderMovimientos();
+}
+function deleteMovimiento(id){
+  saveMovimientos(loadMovimientos().filter(m=>m.id!==id));
+  renderMovimientos();
+}
+function renderMovimientos(){
+  const movs=loadMovimientos().sort((a,b)=>a.date.localeCompare(b.date));
+  const body=document.getElementById('mov-body');
+  if(!body)return;
+  let cum=0,totalDep=0,totalRet=0;
+  body.innerHTML=movs.map(m=>{
+    if(m.tipo==='deposit'){cum+=m.amount;totalDep+=m.amount;}
+    else{cum-=m.amount;totalRet+=m.amount;}
+    const tc=m.tipo==='deposit'?'pos':'neg';
+    const sign=m.tipo==='deposit'?'+':'-';
+    return '<tr>'
+      +'<td>'+m.date+'</td>'
+      +'<td><span class="'+tc+'" style="font-weight:600;">'+(m.tipo==='deposit'?'Depósito':'Retiro')+'</span></td>'
+      +'<td><span class="'+tc+'">'+sign+m.amount.toFixed(2)+' USDC</span></td>'
+      +'<td>'+cum.toFixed(2)+' USDC</td>'
+      +'<td><button class="btn bg" style="padding:2px 8px;font-size:11px;" onclick="deleteMovimiento('+m.id+')">✕</button></td>'
+      +'</tr>';
+  }).join('');
+  const elD=document.getElementById('cap-depositos');
+  const elR=document.getElementById('cap-retiros');
+  const elN=document.getElementById('cap-neto');
+  if(elD)elD.textContent=totalDep.toFixed(2)+' USDC';
+  if(elR)elR.textContent=totalRet.toFixed(2)+' USDC';
+  if(elN)elN.textContent=(totalDep-totalRet).toFixed(2)+' USDC';
+}
+document.addEventListener('DOMContentLoaded',function(){
+  const d=document.getElementById('mov-date');
+  if(d)d.valueAsDate=new Date();
+  renderMovimientos();
+});
+
 </script>
 <style>
 :root{--bg:#fff;--bg2:#f6f6f4;--bg3:#efefec;--text:#1a1a18;--text2:#6b6b67;--text3:#9b9b96;--bo:rgba(0,0,0,.10);--bo2:rgba(0,0,0,.18);--green:#1D9E75;--gbg:#E1F5EE;--gtxt:#085041;--red:#E24B4A;--rbg:#FCEBEB;--rtxt:#501313;--r:8px;--rl:12px;}
@@ -246,6 +314,43 @@ tbody tr:hover td{background:var(--bg2);}
       <button class="btn bg" onclick="testConn()"><i class="ti ti-wifi"></i> Test</button>
     </div>
     <div id="test-res" style="margin-top:8px;font-size:13px;"></div>
+  </div></div>
+
+  <!-- DEPOSITOS Y RETIROS -->
+  <div class="card" style="margin-top:1rem;"><div class="cb">
+    <p style="font-size:15px;font-weight:600;margin-bottom:4px;">Capital &amp; Movimientos</p>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Usado para calcular % rentabilidad y % cuenta diario.</p>
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+      <div class="field" style="margin:0;flex:1;min-width:110px;">
+        <label>Tipo</label>
+        <select id="mov-tipo" style="font-size:13px;padding:7px 10px;border-radius:var(--r);border:.5px solid var(--bo2);background:var(--bg2);color:var(--text);outline:none;width:100%;">
+          <option value="deposit">Depósito</option>
+          <option value="withdraw">Retiro</option>
+        </select>
+      </div>
+      <div class="field" style="margin:0;flex:1;min-width:110px;">
+        <label>Importe (USDC)</label>
+        <input type="number" id="mov-amount" placeholder="0.00" min="0" step="0.01">
+      </div>
+      <div class="field" style="margin:0;flex:1;min-width:120px;">
+        <label>Fecha</label>
+        <input type="date" id="mov-date">
+      </div>
+      <div style="padding-bottom:1px;">
+        <button class="btn bp" onclick="addMovimiento()"><i class="ti ti-plus"></i> Añadir</button>
+      </div>
+    </div>
+    <div class="ox">
+      <table id="mov-table">
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Importe</th><th>Capital acum.</th><th></th></tr></thead>
+        <tbody id="mov-body"><tr><td colspan="5" class="empty">Sin movimientos.</td></tr></tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px;padding:10px 12px;background:var(--bg2);border-radius:var(--r);display:flex;gap:20px;flex-wrap:wrap;">
+      <span style="font-size:12px;color:var(--text2);">Total depositado: <strong id="cap-depositos">—</strong></span>
+      <span style="font-size:12px;color:var(--text2);">Total retirado: <strong id="cap-retiros">—</strong></span>
+      <span style="font-size:12px;color:var(--text2);">Capital neto: <strong id="cap-neto">—</strong></span>
+    </div>
   </div></div>
 </div>
 
@@ -694,6 +799,74 @@ function setTheme(t){
     if(btn) btn.classList.add('active');
   });
 })();
+
+
+// ── MOVIMIENTOS ──
+const MOV_KEY='lt-movimientos';
+const DEFAULT_MOVIMIENTOS=[
+  {id:1,tipo:'deposit',amount:20,date:'2026-05-06'},
+  {id:2,tipo:'deposit',amount:30,date:'2026-05-06'},
+  {id:3,tipo:'deposit',amount:50,date:'2026-05-07'},
+  {id:4,tipo:'deposit',amount:100,date:'2026-05-07'},
+  {id:5,tipo:'deposit',amount:340,date:'2026-05-09'},
+  {id:6,tipo:'deposit',amount:200,date:'2026-05-12'},
+  {id:7,tipo:'deposit',amount:75,date:'2026-05-13'}
+];
+function loadMovimientos(){
+  const raw=localStorage.getItem(MOV_KEY);
+  if(raw) return JSON.parse(raw);
+  localStorage.setItem(MOV_KEY,JSON.stringify(DEFAULT_MOVIMIENTOS));
+  return DEFAULT_MOVIMIENTOS;
+}
+function saveMovimientos(movs){localStorage.setItem(MOV_KEY,JSON.stringify(movs));}
+function getCapitalInicial(){
+  return loadMovimientos().reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;
+}
+function addMovimiento(){
+  const tipo=document.getElementById('mov-tipo').value;
+  const amount=parseFloat(document.getElementById('mov-amount').value);
+  const date=document.getElementById('mov-date').value;
+  if(!amount||amount<=0||!date){alert('Rellena importe y fecha.');return;}
+  const movs=loadMovimientos();
+  movs.push({id:Date.now(),tipo,amount,date});
+  saveMovimientos(movs);
+  document.getElementById('mov-amount').value='';
+  renderMovimientos();
+}
+function deleteMovimiento(id){
+  saveMovimientos(loadMovimientos().filter(m=>m.id!==id));
+  renderMovimientos();
+}
+function renderMovimientos(){
+  const movs=loadMovimientos().sort((a,b)=>a.date.localeCompare(b.date));
+  const body=document.getElementById('mov-body');
+  if(!body)return;
+  let cum=0,totalDep=0,totalRet=0;
+  body.innerHTML=movs.map(m=>{
+    if(m.tipo==='deposit'){cum+=m.amount;totalDep+=m.amount;}
+    else{cum-=m.amount;totalRet+=m.amount;}
+    const tc=m.tipo==='deposit'?'pos':'neg';
+    const sign=m.tipo==='deposit'?'+':'-';
+    return '<tr>'
+      +'<td>'+m.date+'</td>'
+      +'<td><span class="'+tc+'" style="font-weight:600;">'+(m.tipo==='deposit'?'Depósito':'Retiro')+'</span></td>'
+      +'<td><span class="'+tc+'">'+sign+m.amount.toFixed(2)+' USDC</span></td>'
+      +'<td>'+cum.toFixed(2)+' USDC</td>'
+      +'<td><button class="btn bg" style="padding:2px 8px;font-size:11px;" onclick="deleteMovimiento('+m.id+')">✕</button></td>'
+      +'</tr>';
+  }).join('');
+  const elD=document.getElementById('cap-depositos');
+  const elR=document.getElementById('cap-retiros');
+  const elN=document.getElementById('cap-neto');
+  if(elD)elD.textContent=totalDep.toFixed(2)+' USDC';
+  if(elR)elR.textContent=totalRet.toFixed(2)+' USDC';
+  if(elN)elN.textContent=(totalDep-totalRet).toFixed(2)+' USDC';
+}
+document.addEventListener('DOMContentLoaded',function(){
+  const d=document.getElementById('mov-date');
+  if(d)d.valueAsDate=new Date();
+  renderMovimientos();
+});
 
 </script>
 </body>
