@@ -502,7 +502,10 @@ function renderDailyAsset(){
   symbols.sort();
 
   // Header
-
+  document.getElementById('daily-asset-head').innerHTML=
+    '<tr><th style="white-space:nowrap;">Fecha</th>'
+    +symbols.map(s=>'<th>'+s+'</th>').join('')
+    +'<th>Total día</th></tr>';
 
   // Rows
   document.getElementById('daily-asset-body').innerHTML=days.map(day=>{
