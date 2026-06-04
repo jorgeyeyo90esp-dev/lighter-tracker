@@ -183,7 +183,7 @@ tbody tr:hover td{background:var(--bg2);}
     <div class="coin-grid" id="coin-grid"><p style="color:var(--text3);">Sin datos.</p></div>
   </div></div>
   <div class="card"><div class="cb"><div class="ox">
-    <table><thead><tr><th>Mercado</th><th>Cierres</th><th>P&amp;L</th><th>% del total</th><th>Win rate</th><th>Mejor</th><th>Peor</th></tr></thead>
+    <table><thead><tr><th>Mercado</th><th>Cierres</th><th>P&amp;L trades</th><th>Funding</th><th>P&amp;L total</th><th>% total</th><th>WR</th></tr></thead>
     <tbody id="coin-table"></tbody></table>
   </div></div></div>
 </div>
@@ -438,21 +438,45 @@ function renderPositions(){
 function renderByCoin(){
   const by=S.by_symbol||[];
   if(!by.length){document.getElementById('coin-grid').innerHTML='<p style="color:var(--text3);">Sin datos.</p>';document.getElementById('coin-table').innerHTML='';return;}
-  const sorted=[...by].sort((a,b)=>b.pnl-a.pnl);
-  const totalPnl=sorted.reduce((a,c)=>a+c.pnl,0);
-  document.getElementById('coin-grid').innerHTML=sorted.map(c=>{
-    const pc=c.pnl>0?'pos':c.pnl<0?'neg':'neu';
-    const wr=c.trades>0?Math.round((c.wins||0)/c.trades*100):0;
-    const pct=totalPnl!==0?((c.pnl/Math.abs(totalPnl))*100):0;
-    return'<div class="coin-card"><div class="cn">'+c.symbol+'</div><div class="cp '+pc+'">'+(c.pnl>=0?'+':'')+Number(c.pnl).toFixed(2)+' U</div><div class="cs">'+wr+'% WR | '+(pct>=0?'+':'')+pct.toFixed(1)+'% del total</div></div>';
+  // Build funding by symbol from FUNDING_LIST
+  const fundBySym={};
+  (window.FUNDING_LIST||[]).forEach(f=>{
+    const s=f.symbol||'?';
+    fundBySym[s]=(fundBySym[s]||0)+(f.payment||0);
+  });
+  // Merge symbols from trades and funding-only
+  const allSyms={};
+  by.forEach(x=>{allSyms[x.symbol]=Object.assign({},x);});
+  Object.keys(fundBySym).forEach(s=>{
+    if(!allSyms[s]) allSyms[s]={symbol:s,trades:0,pnl:0,wins:0,losses:0,best:null,worst:null};
+  });
+  const sorted=Object.values(allSyms).map(x=>{
+    x.funding=parseFloat((fundBySym[x.symbol]||0).toFixed(4));
+    x.total_pnl=parseFloat((x.pnl+x.funding).toFixed(4));
+    return x;
+  }).sort((a,b)=>b.total_pnl-a.total_pnl);
+  const totalPnl=sorted.reduce((a,x)=>a+x.total_pnl,0);
+  document.getElementById('coin-grid').innerHTML=sorted.map(x=>{
+    const pc=x.total_pnl>0?'pos':x.total_pnl<0?'neg':'neu';
+    const wr=x.trades>0?Math.round((x.wins||0)/x.trades*100):0;
+    const pct=totalPnl!==0?((x.total_pnl/Math.abs(totalPnl))*100):0;
+    return'<div class="coin-card"><div class="cn">'+x.symbol+'</div><div class="cp '+pc+'">'+(x.total_pnl>=0?'+':'')+Number(x.total_pnl).toFixed(2)+' U</div><div class="cs">'+wr+'% WR | '+(pct>=0?'+':'')+pct.toFixed(1)+'% del total</div></div>';
   }).join('');
-  document.getElementById('coin-table').innerHTML=sorted.map(c=>{
-    const pc=c.pnl>0?'pos':c.pnl<0?'neg':'neu';
-    const wr=c.trades>0?Math.round((c.wins||0)/c.trades*100):0;
-    const pct=totalPnl!==0?((c.pnl/Math.abs(totalPnl))*100):0;
-    const best=c.best!==null?'<span class="pos">+'+Number(c.best).toFixed(2)+'</span>':'&#8212;';
-    const worst=c.worst!==null?'<span class="neg">'+Number(c.worst).toFixed(2)+'</span>':'&#8212;';
-    return'<tr><td><strong>'+c.symbol+'</strong></td><td>'+c.trades+'</td><td><span class="'+pc+'">'+(c.pnl>=0?'+':'')+Number(c.pnl).toFixed(2)+' U</span></td><td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td><td>'+wr+'%</td><td>'+best+'</td><td>'+worst+'</td></tr>';
+  document.getElementById('coin-table').innerHTML=sorted.map(x=>{
+    const pc=x.pnl>0?'pos':x.pnl<0?'neg':'neu';
+    const tpc=x.total_pnl>0?'pos':x.total_pnl<0?'neg':'neu';
+    const fp=x.funding>0?'pos':x.funding<0?'neg':'neu';
+    const wr=x.trades>0?Math.round((x.wins||0)/x.trades*100):0;
+    const pct=totalPnl!==0?((x.total_pnl/Math.abs(totalPnl))*100):0;
+    return'<tr>'
+      +'<td><strong>'+x.symbol+'</strong></td>'
+      +'<td>'+x.trades+'</td>'
+      +'<td><span class="'+pc+'">'+(x.pnl>=0?'+':'')+Number(x.pnl).toFixed(2)+' U</span></td>'
+      +'<td><span class="'+fp+'">'+(x.funding>=0?'+':'')+x.funding.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+tpc+'">'+(x.total_pnl>=0?'+':'')+Number(x.total_pnl).toFixed(2)+' U</span></td>'
+      +'<td><span class="'+tpc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
   }).join('');
 }
 
@@ -484,19 +508,46 @@ function renderDailyAsset(){
     +'<th>Total día</th></tr>';
 
   // Rows
+  // Build funding by day+symbol
+  const fundDaySym={};
+  (window.FUNDING_LIST||[]).forEach(f=>{
+    if(!f.ts) return;
+    const ts=parseInt(f.ts);
+    const tsMs=ts<1000000000000?ts*1000:ts;
+    const day=new Date(tsMs).toISOString().slice(0,10);
+    const sym=f.symbol||'?';
+    if(!fundDaySym[day])fundDaySym[day]={};
+    fundDaySym[day][sym]=(fundDaySym[day][sym]||0)+(f.payment||0);
+    if(!days.includes(day))days.push(day);
+    if(!symbols.includes(sym))symbols.push(sym);
+  });
+  days.sort((a,b)=>b.localeCompare(a));
+  symbols.sort();
+  // Rebuild header with updated symbols
+  document.getElementById('daily-asset-head').innerHTML=
+    '<tr><th style="white-space:nowrap;">Fecha</th>'
+    +symbols.map(s=>'<th>'+s+'</th>').join('')
+    +'<th>Trades</th><th>Funding</th><th>Total</th></tr>';
   document.getElementById('daily-asset-body').innerHTML=days.map(day=>{
-    let dayTotal=0;
+    let dayTrades=0,dayFunding=0;
     const cells=symbols.map(sym=>{
-      const val=map[day][sym];
-      if(val===undefined) return '<td style="color:var(--text3);">—</td>';
-      dayTotal+=val;
+      const tv=map[day]?map[day][sym]:undefined;
+      const fv=fundDaySym[day]?fundDaySym[day][sym]:undefined;
+      const val=(tv||0)+(fv||0);
+      if(tv===undefined&&fv===undefined) return '<td style="color:var(--text3);">—</td>';
+      if(tv!==undefined) dayTrades+=tv;
+      if(fv!==undefined) dayFunding+=fv;
       const pc=val>0?'pos':val<0?'neg':'neu';
       return '<td><span class="'+pc+'">'+(val>=0?'+':'')+val.toFixed(2)+'</span></td>';
     });
+    const dayTotal=dayTrades+dayFunding;
     const dtc=dayTotal>0?'pos':dayTotal<0?'neg':'neu';
+    const ftc=dayFunding>0?'pos':dayFunding<0?'neg':'neu';
     return '<tr>'
       +'<td style="white-space:nowrap;font-weight:500;">'+day+'</td>'
       +cells.join('')
+      +'<td><span class="'+(dayTrades>=0?'pos':'neg')+'">'+(dayTrades>=0?'+':'')+dayTrades.toFixed(2)+'</span></td>'
+      +'<td><span class="'+ftc+'">'+(dayFunding>=0?'+':'')+dayFunding.toFixed(4)+'</span></td>'
       +'<td style="font-weight:600;"><span class="'+dtc+'">'+(dayTotal>=0?'+':'')+dayTotal.toFixed(2)+'</span></td>'
       +'</tr>';
   }).join('');
