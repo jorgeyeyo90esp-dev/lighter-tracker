@@ -502,52 +502,22 @@ function renderDailyAsset(){
   symbols.sort();
 
   // Header
-  document.getElementById('daily-asset-head').innerHTML=
-    '<tr><th style="white-space:nowrap;">Fecha</th>'
-    +symbols.map(s=>'<th>'+s+'</th>').join('')
-    +'<th>Total día</th></tr>';
+
 
   // Rows
-  // Build funding by day+symbol
-  const fundDaySym={};
-  (window.FUNDING_LIST||[]).forEach(f=>{
-    if(!f.ts) return;
-    const ts=parseInt(f.ts);
-    const tsMs=ts<1000000000000?ts*1000:ts;
-    const day=new Date(tsMs).toISOString().slice(0,10);
-    const sym=f.symbol||'?';
-    if(!fundDaySym[day])fundDaySym[day]={};
-    fundDaySym[day][sym]=(fundDaySym[day][sym]||0)+(f.payment||0);
-    if(!days.includes(day))days.push(day);
-    if(!symbols.includes(sym))symbols.push(sym);
-  });
-  days.sort((a,b)=>b.localeCompare(a));
-  symbols.sort();
-  // Rebuild header with updated symbols
-  document.getElementById('daily-asset-head').innerHTML=
-    '<tr><th style="white-space:nowrap;">Fecha</th>'
-    +symbols.map(s=>'<th>'+s+'</th>').join('')
-    +'<th>Trades</th><th>Funding</th><th>Total</th></tr>';
   document.getElementById('daily-asset-body').innerHTML=days.map(day=>{
-    let dayTrades=0,dayFunding=0;
+    let dayTotal=0;
     const cells=symbols.map(sym=>{
-      const tv=map[day]?map[day][sym]:undefined;
-      const fv=fundDaySym[day]?fundDaySym[day][sym]:undefined;
-      const val=(tv||0)+(fv||0);
-      if(tv===undefined&&fv===undefined) return '<td style="color:var(--text3);">—</td>';
-      if(tv!==undefined) dayTrades+=tv;
-      if(fv!==undefined) dayFunding+=fv;
+      const val=map[day][sym];
+      if(val===undefined) return '<td style="color:var(--text3);">—</td>';
+      dayTotal+=val;
       const pc=val>0?'pos':val<0?'neg':'neu';
       return '<td><span class="'+pc+'">'+(val>=0?'+':'')+val.toFixed(2)+'</span></td>';
     });
-    const dayTotal=dayTrades+dayFunding;
     const dtc=dayTotal>0?'pos':dayTotal<0?'neg':'neu';
-    const ftc=dayFunding>0?'pos':dayFunding<0?'neg':'neu';
     return '<tr>'
       +'<td style="white-space:nowrap;font-weight:500;">'+day+'</td>'
       +cells.join('')
-      +'<td><span class="'+(dayTrades>=0?'pos':'neg')+'">'+(dayTrades>=0?'+':'')+dayTrades.toFixed(2)+'</span></td>'
-      +'<td><span class="'+ftc+'">'+(dayFunding>=0?'+':'')+dayFunding.toFixed(4)+'</span></td>'
       +'<td style="font-weight:600;"><span class="'+dtc+'">'+(dayTotal>=0?'+':'')+dayTotal.toFixed(2)+'</span></td>'
       +'</tr>';
   }).join('');
