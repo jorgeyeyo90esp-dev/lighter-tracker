@@ -112,7 +112,7 @@ function switchExchange(ex){
   document.getElementById('exch-lighter').classList.toggle('active', ex==='lighter');
   document.getElementById('exch-aster').classList.toggle('active', ex==='aster');
   document.getElementById('hdr-title').textContent = ex==='lighter'?'Lighter Tracker':'Aster Tracker';
-  if(ex==='aster'){atLoadStored();atShowPane('daily');}
+  if(ex==='aster'){atLoadStored();atRenderMovimientos();atShowPane('daily');}
 }
 
 function atLoadStored(){
@@ -200,9 +200,7 @@ function atShowPane(t){
   else if(t==='daily-asset') atRenderDailyAsset();
 }
 
-function atGetCapital(){
-  try{const raw=localStorage.getItem('lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}
-}
+// atGetCapital defined below
 
 function atRenderStats(){
   const trades = AT_TRADES;
@@ -412,6 +410,75 @@ function atRenderDailyAsset(){
       +'</tr>';
   }).join('');
 }
+
+
+// ── ASTER MOVIMIENTOS ──
+const AT_MOV_KEY='aster-movimientos-v1';
+
+function atLoadMovimientos(){
+  try{
+    const raw=localStorage.getItem(AT_MOV_KEY);
+    return raw?JSON.parse(raw):[];
+  }catch(e){return [];}
+}
+function atSaveMovimientos(movs){localStorage.setItem(AT_MOV_KEY,JSON.stringify(movs));}
+
+function atGetCapital(){
+  const movs=atLoadMovimientos();
+  if(!movs.length) return 0;
+  return movs.reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||0;
+}
+
+function atAddMovimiento(){
+  const tipo=document.getElementById('at-mov-tipo').value;
+  const amount=parseFloat(document.getElementById('at-mov-amount').value);
+  const date=document.getElementById('at-mov-date').value;
+  if(!amount||amount<=0||!date){alert('Rellena importe y fecha.');return;}
+  const movs=atLoadMovimientos();
+  movs.push({id:Date.now(),tipo,amount,date});
+  atSaveMovimientos(movs);
+  document.getElementById('at-mov-amount').value='';
+  atRenderMovimientos();
+  atRenderStats();
+}
+
+function atDeleteMovimiento(id){
+  atSaveMovimientos(atLoadMovimientos().filter(m=>m.id!==id));
+  atRenderMovimientos();
+  atRenderStats();
+}
+
+function atRenderMovimientos(){
+  const movs=atLoadMovimientos().sort((a,b)=>a.date.localeCompare(b.date));
+  const body=document.getElementById('at-mov-body');
+  if(!body) return;
+  let cum=0,totalDep=0,totalRet=0;
+  body.innerHTML=movs.map(m=>{
+    if(m.tipo==='deposit'){cum+=m.amount;totalDep+=m.amount;}
+    else{cum-=m.amount;totalRet+=m.amount;}
+    const tc=m.tipo==='deposit'?'pos':'neg';
+    const sign=m.tipo==='deposit'?'+':'-';
+    return '<tr>'
+      +'<td>'+m.date+'</td>'
+      +'<td><span class="'+tc+'" style="font-weight:600;">'+(m.tipo==='deposit'?'Depósito':'Retiro')+'</span></td>'
+      +'<td><span class="'+tc+'">'+sign+m.amount.toFixed(2)+' USDT</span></td>'
+      +'<td>'+cum.toFixed(2)+' USDT</td>'
+      +'<td><button class="btn bg" style="padding:2px 8px;font-size:11px;" onclick="atDeleteMovimiento('+m.id+')">✕</button></td>'
+      +'</tr>';
+  }).join('') || '<tr><td colspan="5" class="empty">Sin movimientos.</td></tr>';
+  const elD=document.getElementById('at-cap-depositos');
+  const elR=document.getElementById('at-cap-retiros');
+  const elN=document.getElementById('at-cap-neto');
+  if(elD) elD.textContent=totalDep.toFixed(2)+' USDT';
+  if(elR) elR.textContent=totalRet.toFixed(2)+' USDT';
+  if(elN) elN.textContent=(totalDep-totalRet).toFixed(2)+' USDT';
+}
+
+// Init Aster date picker
+document.addEventListener('DOMContentLoaded',function(){
+  const d=document.getElementById('at-mov-date');
+  if(d) d.valueAsDate=new Date();
+});
 
 </script>
 <style>
@@ -702,7 +769,7 @@ tbody tr:hover td{background:var(--bg2);}
     <button class="tab" id="at-tab-monthly" onclick="atShowPane('monthly')"><i class="ti ti-calendar-month"></i> Mensual</button>
     <button class="tab" id="at-tab-bycoin" onclick="atShowPane('bycoin')"><i class="ti ti-coin"></i> X Activo</button>
     <button class="tab" id="at-tab-daily-asset" onclick="atShowPane('daily-asset')"><i class="ti ti-table"></i> Diario x Activo</button>
-    <button class="tab" id="at-tab-upload" onclick="atShowPane('upload')"><i class="ti ti-upload"></i> Subir CSV</button>
+    <button class="tab" id="at-tab-upload" onclick="atShowPane('upload')"><i class="ti ti-upload"></i> Config</button>
   </div>
 
   <!-- DIARIO -->
@@ -761,6 +828,43 @@ tbody tr:hover td{background:var(--bg2);}
       </div>
       <div style="margin-top:14px;padding:10px 12px;background:var(--bg2);border-radius:var(--r);">
         <span style="font-size:12px;color:var(--text2);">Registros almacenados: <strong id="at-stored-count">0</strong></span>
+      </div>
+    </div></div>
+
+    <!-- CAPITAL ASTER -->
+    <div class="card" style="margin-top:1rem;"><div class="cb">
+      <p style="font-size:15px;font-weight:600;margin-bottom:4px;">Capital &amp; Movimientos Aster</p>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Usado para calcular % rentabilidad y % cuenta diario de Aster.</p>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+        <div class="field" style="margin:0;flex:1;min-width:110px;">
+          <label>Tipo</label>
+          <select id="at-mov-tipo" style="font-size:13px;padding:7px 10px;border-radius:var(--r);border:.5px solid var(--bo2);background:var(--bg2);color:var(--text);outline:none;width:100%;">
+            <option value="deposit">Depósito</option>
+            <option value="withdraw">Retiro</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;flex:1;min-width:110px;">
+          <label>Importe (USDT)</label>
+          <input type="number" id="at-mov-amount" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="field" style="margin:0;flex:1;min-width:120px;">
+          <label>Fecha</label>
+          <input type="date" id="at-mov-date">
+        </div>
+        <div style="padding-bottom:1px;">
+          <button class="btn bp" onclick="atAddMovimiento()"><i class="ti ti-plus"></i> Añadir</button>
+        </div>
+      </div>
+      <div class="ox">
+        <table id="at-mov-table">
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Importe</th><th>Capital acum.</th><th></th></tr></thead>
+          <tbody id="at-mov-body"><tr><td colspan="5" class="empty">Sin movimientos.</td></tr></tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;padding:10px 12px;background:var(--bg2);border-radius:var(--r);display:flex;gap:20px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--text2);">Total depositado: <strong id="at-cap-depositos">—</strong></span>
+        <span style="font-size:12px;color:var(--text2);">Total retirado: <strong id="at-cap-retiros">—</strong></span>
+        <span style="font-size:12px;color:var(--text2);">Capital neto: <strong id="at-cap-neto">—</strong></span>
       </div>
     </div></div>
   </div>
@@ -1297,7 +1401,7 @@ function switchExchange(ex){
   document.getElementById('exch-lighter').classList.toggle('active', ex==='lighter');
   document.getElementById('exch-aster').classList.toggle('active', ex==='aster');
   document.getElementById('hdr-title').textContent = ex==='lighter'?'Lighter Tracker':'Aster Tracker';
-  if(ex==='aster'){atLoadStored();atShowPane('daily');}
+  if(ex==='aster'){atLoadStored();atRenderMovimientos();atShowPane('daily');}
 }
 
 function atLoadStored(){
@@ -1385,9 +1489,7 @@ function atShowPane(t){
   else if(t==='daily-asset') atRenderDailyAsset();
 }
 
-function atGetCapital(){
-  try{const raw=localStorage.getItem('lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}
-}
+// atGetCapital defined below
 
 function atRenderStats(){
   const trades = AT_TRADES;
@@ -1597,6 +1699,75 @@ function atRenderDailyAsset(){
       +'</tr>';
   }).join('');
 }
+
+
+// ── ASTER MOVIMIENTOS ──
+const AT_MOV_KEY='aster-movimientos-v1';
+
+function atLoadMovimientos(){
+  try{
+    const raw=localStorage.getItem(AT_MOV_KEY);
+    return raw?JSON.parse(raw):[];
+  }catch(e){return [];}
+}
+function atSaveMovimientos(movs){localStorage.setItem(AT_MOV_KEY,JSON.stringify(movs));}
+
+function atGetCapital(){
+  const movs=atLoadMovimientos();
+  if(!movs.length) return 0;
+  return movs.reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||0;
+}
+
+function atAddMovimiento(){
+  const tipo=document.getElementById('at-mov-tipo').value;
+  const amount=parseFloat(document.getElementById('at-mov-amount').value);
+  const date=document.getElementById('at-mov-date').value;
+  if(!amount||amount<=0||!date){alert('Rellena importe y fecha.');return;}
+  const movs=atLoadMovimientos();
+  movs.push({id:Date.now(),tipo,amount,date});
+  atSaveMovimientos(movs);
+  document.getElementById('at-mov-amount').value='';
+  atRenderMovimientos();
+  atRenderStats();
+}
+
+function atDeleteMovimiento(id){
+  atSaveMovimientos(atLoadMovimientos().filter(m=>m.id!==id));
+  atRenderMovimientos();
+  atRenderStats();
+}
+
+function atRenderMovimientos(){
+  const movs=atLoadMovimientos().sort((a,b)=>a.date.localeCompare(b.date));
+  const body=document.getElementById('at-mov-body');
+  if(!body) return;
+  let cum=0,totalDep=0,totalRet=0;
+  body.innerHTML=movs.map(m=>{
+    if(m.tipo==='deposit'){cum+=m.amount;totalDep+=m.amount;}
+    else{cum-=m.amount;totalRet+=m.amount;}
+    const tc=m.tipo==='deposit'?'pos':'neg';
+    const sign=m.tipo==='deposit'?'+':'-';
+    return '<tr>'
+      +'<td>'+m.date+'</td>'
+      +'<td><span class="'+tc+'" style="font-weight:600;">'+(m.tipo==='deposit'?'Depósito':'Retiro')+'</span></td>'
+      +'<td><span class="'+tc+'">'+sign+m.amount.toFixed(2)+' USDT</span></td>'
+      +'<td>'+cum.toFixed(2)+' USDT</td>'
+      +'<td><button class="btn bg" style="padding:2px 8px;font-size:11px;" onclick="atDeleteMovimiento('+m.id+')">✕</button></td>'
+      +'</tr>';
+  }).join('') || '<tr><td colspan="5" class="empty">Sin movimientos.</td></tr>';
+  const elD=document.getElementById('at-cap-depositos');
+  const elR=document.getElementById('at-cap-retiros');
+  const elN=document.getElementById('at-cap-neto');
+  if(elD) elD.textContent=totalDep.toFixed(2)+' USDT';
+  if(elR) elR.textContent=totalRet.toFixed(2)+' USDT';
+  if(elN) elN.textContent=(totalDep-totalRet).toFixed(2)+' USDT';
+}
+
+// Init Aster date picker
+document.addEventListener('DOMContentLoaded',function(){
+  const d=document.getElementById('at-mov-date');
+  if(d) d.valueAsDate=new Date();
+});
 
 </script>
 </body>
