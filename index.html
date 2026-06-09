@@ -94,6 +94,325 @@ document.addEventListener('DOMContentLoaded',function(){
   renderMovimientos();
 });
 
+
+// ══════════════════════════════════════
+// ASTER - CSV Storage & Analytics
+// ══════════════════════════════════════
+const AT_KEY = 'aster-trades-v1';
+const AT_FUND_KEY = 'aster-funding-v1';
+let AT_TRADES = [];
+let AT_FUNDING = [];
+let AT_CHARTS = {};
+let currentExchange = 'lighter';
+
+function switchExchange(ex){
+  currentExchange = ex;
+  document.getElementById('section-lighter').style.display = ex==='lighter'?'':'none';
+  document.getElementById('section-aster').style.display = ex==='aster'?'':'none';
+  document.getElementById('exch-lighter').classList.toggle('active', ex==='lighter');
+  document.getElementById('exch-aster').classList.toggle('active', ex==='aster');
+  document.getElementById('hdr-title').textContent = ex==='lighter'?'Lighter Tracker':'Aster Tracker';
+  if(ex==='aster'){atLoadStored();atShowPane('daily');}
+}
+
+function atLoadStored(){
+  try{
+    const td = localStorage.getItem(AT_KEY);
+    const fd = localStorage.getItem(AT_FUND_KEY);
+    AT_TRADES = td ? JSON.parse(td) : [];
+    AT_FUNDING = fd ? JSON.parse(fd) : [];
+  }catch(e){ AT_TRADES=[]; AT_FUNDING=[]; }
+  atRenderStats();
+  atShowPane(document.querySelector('#section-aster .pane.on')?.id?.replace('at-pane-','') || 'daily');
+  const el = document.getElementById('at-stored-count');
+  if(el) el.textContent = AT_TRADES.length + ' trades, ' + AT_FUNDING.length + ' funding';
+}
+
+function atLoadCsv(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const text = e.target.result;
+    const {trades, funding, skipped} = atParseCsv(text);
+    // Merge without duplicates using key = time+type+amount+symbol
+    const existingKeys = new Set(AT_TRADES.map(t=>t._key));
+    const existingFKeys = new Set(AT_FUNDING.map(f=>f._key));
+    let addedT=0, addedF=0;
+    trades.forEach(t=>{ if(!existingKeys.has(t._key)){AT_TRADES.push(t);addedT++;} });
+    funding.forEach(f=>{ if(!existingFKeys.has(f._key)){AT_FUNDING.push(f);addedF++;} });
+    localStorage.setItem(AT_KEY, JSON.stringify(AT_TRADES));
+    localStorage.setItem(AT_FUND_KEY, JSON.stringify(AT_FUNDING));
+    const status = document.getElementById('at-upload-status');
+    if(status) status.innerHTML = '<span class="pos">✓ Añadidos: '+addedT+' trades, '+addedF+' funding. Saltados (duplicados): '+skipped+'</span>';
+    const el = document.getElementById('at-stored-count');
+    if(el) el.textContent = AT_TRADES.length + ' trades, ' + AT_FUNDING.length + ' funding';
+    atRenderStats();
+    atShowPane('daily');
+  };
+  reader.readAsText(file);
+}
+
+function atParseCsv(text){
+  const trades=[], funding=[], lines=text.trim().split('\n');
+  let skipped=0;
+  lines.slice(1).forEach(line=>{
+    const parts = line.split(',');
+    if(parts.length < 4) return;
+    const time = parts[0].trim();
+    const type = parts[1].trim();
+    const amountRaw = parts[2].trim();
+    const symbol = parts[3].trim().replace('USDT','').replace('\r','');
+    const amount = parseFloat(amountRaw.replace(' USDT','').replace('\r',''));
+    if(isNaN(amount)) return;
+    const key = time+'|'+type+'|'+amountRaw+'|'+symbol;
+    const ts = new Date(time).getTime();
+    if(type === 'PNL Realizado'){
+      trades.push({_key:key, ts, date:time.slice(0,10), symbol, pnl:amount});
+    } else if(type === 'Tarifa de financiamiento'){
+      funding.push({_key:key, ts, date:time.slice(0,10), symbol, payment:amount});
+    }
+  });
+  return {trades, funding, skipped};
+}
+
+function atClearData(){
+  if(!confirm('¿Borrar todos los datos de Aster?')) return;
+  AT_TRADES=[]; AT_FUNDING=[];
+  localStorage.removeItem(AT_KEY);
+  localStorage.removeItem(AT_FUND_KEY);
+  atRenderStats();
+  atShowPane('daily');
+  const el = document.getElementById('at-stored-count');
+  if(el) el.textContent = '0';
+}
+
+function atShowPane(t){
+  document.querySelectorAll('#section-aster .pane').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('#section-aster .tab').forEach(b=>b.classList.remove('active'));
+  const pane = document.getElementById('at-pane-'+t);
+  const tab = document.getElementById('at-tab-'+t);
+  if(pane) pane.classList.add('on');
+  if(tab) tab.classList.add('active');
+  if(t==='daily') atRenderDaily();
+  else if(t==='monthly') atRenderMonthly();
+  else if(t==='bycoin') atRenderByCoin();
+  else if(t==='daily-asset') atRenderDailyAsset();
+}
+
+function atGetCapital(){
+  try{const raw=localStorage.getItem('lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}
+}
+
+function atRenderStats(){
+  const trades = AT_TRADES;
+  const funding = AT_FUNDING;
+  const totalPnl = trades.reduce((a,t)=>a+t.pnl,0);
+  const totalFund = funding.reduce((a,f)=>a+f.payment,0);
+  const totalCombined = totalPnl + totalFund;
+  const wins = trades.filter(t=>t.pnl>0).length;
+  const losses = trades.filter(t=>t.pnl<0).length;
+  const wr = trades.length ? Math.round(wins/trades.length*100) : 0;
+  const now = Date.now();
+  const todayStart = new Date().setHours(0,0,0,0);
+  const todayPnl = trades.filter(t=>t.ts>=todayStart).reduce((a,t)=>a+t.pnl,0);
+  const p7 = trades.filter(t=>t.ts>=now-7*86400000).reduce((a,t)=>a+t.pnl,0);
+  const p30 = trades.filter(t=>t.ts>=now-30*86400000).reduce((a,t)=>a+t.pnl,0);
+  const cap = atGetCapital();
+  const totalAcc = cap + totalCombined;
+  const rentPct = cap>0?(totalCombined/cap)*100:0;
+
+  function sv(id,val,cls){const e=document.getElementById(id);if(e){e.textContent=(val>=0?'+':'')+val.toFixed(2)+' U';e.className='sval '+(val>0?'pos':val<0?'neg':'neu');}}
+  sv('at-sp', totalCombined);
+  sv('at-sd', todayPnl);
+  sv('at-sf', totalFund);
+  sv('at-s7', p7);
+  sv('at-s30', p30);
+  const swEl=document.getElementById('at-sw');
+  if(swEl){swEl.textContent='$'+totalAcc.toFixed(2);swEl.className='sval '+(totalAcc>cap?'pos':totalAcc<cap?'neg':'neu');}
+  const sgEl=document.getElementById('at-sg');
+  if(sgEl){sgEl.textContent=(rentPct>=0?'+':'')+rentPct.toFixed(2)+'%';sgEl.className='sval '+(rentPct>0?'pos':rentPct<0?'neg':'neu');}
+  const sgsEl=document.getElementById('at-sgs');
+  if(sgsEl) sgsEl.textContent='sobre '+cap.toFixed(0)+' USDC invertidos';
+  const swrEl=document.getElementById('at-swr');
+  if(swrEl){swrEl.textContent=wr+'%';swrEl.className='sval '+(wr>=50?'pos':wr<50&&trades.length?'neg':'neu');}
+  const swrsEl=document.getElementById('at-swrs');
+  if(swrsEl) swrsEl.textContent=wins+' ganad. / '+losses+' perd.';
+}
+
+function atRenderDaily(){
+  const map={}, fundMap={};
+  AT_TRADES.forEach(t=>{
+    if(!map[t.date])map[t.date]={pnl:0,count:0,wins:0,pnls:[]};
+    map[t.date].pnl+=t.pnl; map[t.date].count++;
+    map[t.date].pnls.push(t.pnl);
+    if(t.pnl>0)map[t.date].wins++;
+  });
+  AT_FUNDING.forEach(f=>{fundMap[f.date]=(fundMap[f.date]||0)+f.payment;});
+  const allDates=new Set([...Object.keys(map),...Object.keys(fundMap)]);
+  const days=[...allDates].sort((a,b)=>b.localeCompare(a));
+  const cap=atGetCapital();
+  const sortedAsc=[...days].sort((a,b)=>a.localeCompare(b));
+  let runPnl=0;
+  const balMap={};
+  sortedAsc.forEach(d=>{balMap[d]=cap+runPnl;runPnl+=(map[d]?.pnl||0)+(fundMap[d]||0);});
+
+  const body=document.getElementById('at-daily-body');
+  if(!days.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos. Sube un CSV en la pestaña "Subir CSV".</td></tr>';return;}
+  body.innerHTML=days.map(d=>{
+    const m=map[d]||{pnl:0,count:0,wins:0,pnls:[]};
+    const fund=fundMap[d]||0;
+    const total=m.pnl+fund;
+    const pc=m.pnl>0?'pos':m.pnl<0?'neg':'neu';
+    const tc=total>0?'pos':total<0?'neg':'neu';
+    const fp=fund>0?'pos':fund<0?'neg':'neu';
+    const wr=m.pnls.length?Math.round(m.wins/m.pnls.length*100):0;
+    const bal=balMap[d]||cap;
+    const pctDay=bal>0?(total/bal)*100:0;
+    return '<tr>'
+      +'<td style="white-space:nowrap;font-weight:500;">'+d+'</td>'
+      +'<td>'+m.count+'</td>'
+      +'<td><span class="'+pc+'">'+(m.pnl>=0?'+':'')+m.pnl.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(pctDay>=0?'+':'')+pctDay.toFixed(2)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+
+  // Chart last 30 days
+  const last30=sortedAsc.slice(-30);
+  if(AT_CHARTS.daily) AT_CHARTS.daily.destroy();
+  AT_CHARTS.daily=new Chart(document.getElementById('at-dailyChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:last30.map(d=>d.slice(5)),datasets:[
+      {label:'Trades',data:last30.map(d=>(map[d]?.pnl||0).toFixed(4)),backgroundColor:last30.map(d=>(map[d]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:3},
+      {label:'Funding',data:last30.map(d=>(fundMap[d]||0).toFixed(4)),backgroundColor:'rgba(100,100,200,0.5)',borderRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'var(--text)',font:{size:11}}}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:10}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{autoSkip:true,maxTicksLimit:15,font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+function atRenderMonthly(){
+  const map={}, fundMap={};
+  AT_TRADES.forEach(t=>{
+    const k=t.date.slice(0,7);
+    if(!map[k])map[k]={pnl:0,count:0,wins:0};
+    map[k].pnl+=t.pnl; map[k].count++;
+    if(t.pnl>0)map[k].wins++;
+  });
+  AT_FUNDING.forEach(f=>{const k=f.date.slice(0,7);fundMap[k]=(fundMap[k]||0)+f.payment;});
+  const allM=new Set([...Object.keys(map),...Object.keys(fundMap)]);
+  const months=[...allM].sort((a,b)=>b.localeCompare(a));
+  const cap=atGetCapital();
+  const sortedAsc=[...months].sort((a,b)=>a.localeCompare(b));
+  let runPnl=0; const balMap={};
+  sortedAsc.forEach(m=>{balMap[m]=cap+runPnl;runPnl+=(map[m]?.pnl||0)+(fundMap[m]||0);});
+
+  const body=document.getElementById('at-monthly-body');
+  if(!months.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
+  body.innerHTML=months.map(m=>{
+    const d=map[m]||{pnl:0,count:0,wins:0};
+    const fund=fundMap[m]||0;
+    const total=d.pnl+fund;
+    const pc=d.pnl>0?'pos':d.pnl<0?'neg':'neu';
+    const tc=total>0?'pos':total<0?'neg':'neu';
+    const fp=fund>0?'pos':fund<0?'neg':'neu';
+    const wr=d.count?Math.round(d.wins/d.count*100):0;
+    const bal=balMap[m]||cap;
+    const pct=bal>0?(total/bal)*100:0;
+    return '<tr>'
+      +'<td style="font-weight:600;">'+m+'</td>'
+      +'<td>'+d.count+'</td>'
+      +'<td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+
+  const last12=sortedAsc.slice(-12);
+  if(AT_CHARTS.monthly) AT_CHARTS.monthly.destroy();
+  AT_CHARTS.monthly=new Chart(document.getElementById('at-monthlyChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:last12,datasets:[
+      {label:'Trades',data:last12.map(m=>(map[m]?.pnl||0).toFixed(2)),backgroundColor:last12.map(m=>(map[m]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:3},
+      {label:'Funding',data:last12.map(m=>(fundMap[m]||0).toFixed(4)),backgroundColor:'rgba(100,100,200,0.5)',borderRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'var(--text)',font:{size:11}}}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
+  });
+}
+
+function atRenderByCoin(){
+  const map={}, fundMap={};
+  AT_TRADES.forEach(t=>{
+    if(!map[t.symbol])map[t.symbol]={pnl:0,count:0,wins:0};
+    map[t.symbol].pnl+=t.pnl; map[t.symbol].count++;
+    if(t.pnl>0)map[t.symbol].wins++;
+  });
+  AT_FUNDING.forEach(f=>{fundMap[f.symbol]=(fundMap[f.symbol]||0)+f.payment;});
+  const allS=new Set([...Object.keys(map),...Object.keys(fundMap)]);
+  const sorted=[...allS].map(s=>({
+    symbol:s,
+    pnl:map[s]?.pnl||0,
+    count:map[s]?.count||0,
+    wins:map[s]?.wins||0,
+    funding:fundMap[s]||0,
+    total:(map[s]?.pnl||0)+(fundMap[s]||0)
+  })).sort((a,b)=>b.total-a.total);
+  const totalAll=sorted.reduce((a,x)=>a+x.total,0);
+  document.getElementById('at-coin-table').innerHTML=sorted.map(x=>{
+    const pc=x.pnl>0?'pos':x.pnl<0?'neg':'neu';
+    const tc=x.total>0?'pos':x.total<0?'neg':'neu';
+    const fp=x.funding>0?'pos':x.funding<0?'neg':'neu';
+    const wr=x.count?Math.round(x.wins/x.count*100):0;
+    const pct=totalAll?((x.total/Math.abs(totalAll))*100):0;
+    return '<tr>'
+      +'<td><strong>'+x.symbol+'</strong></td>'
+      +'<td>'+x.count+'</td>'
+      +'<td><span class="'+pc+'">'+(x.pnl>=0?'+':'')+x.pnl.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+fp+'">'+(x.funding>=0?'+':'')+x.funding.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(x.total>=0?'+':'')+x.total.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function atRenderDailyAsset(){
+  const map={};
+  const days=[], symbols=[];
+  AT_TRADES.forEach(t=>{
+    if(!map[t.date])map[t.date]={};
+    map[t.date][t.symbol]=(map[t.date][t.symbol]||0)+t.pnl;
+    if(!days.includes(t.date))days.push(t.date);
+    if(!symbols.includes(t.symbol))symbols.push(t.symbol);
+  });
+  days.sort((a,b)=>b.localeCompare(a));
+  symbols.sort();
+  document.getElementById('at-daily-asset-head').innerHTML=
+    '<tr><th style="white-space:nowrap;">Fecha</th>'
+    +symbols.map(s=>'<th>'+s+'</th>').join('')
+    +'<th>Total día</th></tr>';
+  document.getElementById('at-daily-asset-body').innerHTML=days.map(day=>{
+    let dayTotal=0;
+    const cells=symbols.map(sym=>{
+      const val=map[day][sym];
+      if(val===undefined) return '<td style="color:var(--text3);">—</td>';
+      dayTotal+=val;
+      const pc=val>0?'pos':val<0?'neg':'neu';
+      return '<td><span class="'+pc+'">'+(val>=0?'+':'')+val.toFixed(2)+'</span></td>';
+    });
+    const dtc=dayTotal>0?'pos':dayTotal<0?'neg':'neu';
+    return '<tr>'
+      +'<td style="white-space:nowrap;font-weight:500;">'+day+'</td>'
+      +cells.join('')
+      +'<td style="font-weight:600;"><span class="'+dtc+'">'+(dayTotal>=0?'+':'')+dayTotal.toFixed(2)+'</span></td>'
+      +'</tr>';
+  }).join('');
+}
+
 </script>
 <style>
 :root{--bg:#fff;--bg2:#f6f6f4;--bg3:#efefec;--text:#1a1a18;--text2:#6b6b67;--text3:#9b9b96;--bo:rgba(0,0,0,.10);--bo2:rgba(0,0,0,.18);--green:#1D9E75;--gbg:#E1F5EE;--gtxt:#085041;--red:#E24B4A;--rbg:#FCEBEB;--rtxt:#501313;--r:8px;--rl:12px;}
@@ -170,6 +489,10 @@ tbody tr:hover td{background:var(--bg2);}
 .tbtn-blue{background:linear-gradient(135deg,#0d1421,#38bdf8);}
 .tbtn-warm{background:#f2ebe0;box-shadow:0 0 0 1px rgba(120,80,40,.25);}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+.exch-switcher{display:flex;gap:4px;background:var(--bg2);border-radius:var(--rl);padding:3px;}
+.exch-btn{padding:5px 14px;border:none;border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:600;background:transparent;color:var(--text2);transition:all .15s;}
+.exch-btn.active{background:var(--bg);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.12);}
 </style>
 </head>
 <body>
@@ -186,7 +509,11 @@ tbody tr:hover td{background:var(--bg2);}
 <div class="hdr">
   <div class="logo">
     <div class="dot"></div>
-    <div><h1>Lighter Tracker</h1><span class="sub" id="sub">Conectando...</span></div>
+    <div><h1 id="hdr-title">Lighter Tracker</h1><span class="sub" id="sub">Conectando...</span></div>
+  </div>
+  <div class="exch-switcher">
+    <button class="exch-btn active" id="exch-lighter" onclick="switchExchange('lighter')">⚡ Lighter</button>
+    <button class="exch-btn" id="exch-aster" onclick="switchExchange('aster')">🌟 Aster</button>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
     <span style="font-size:11px;color:var(--text3);" id="lu"></span>
@@ -195,6 +522,7 @@ tbody tr:hover td{background:var(--bg2);}
   </div>
 </div>
 
+<div id="section-lighter">
 <div class="stats">
   <div class="stat"><div class="slbl">P&amp;L Total</div><div class="sval neu" id="sp">&#8212;</div><div class="ssub" id="sps">trades + funding</div></div>
   <div class="stat"><div class="slbl">P&amp;L Hoy</div><div class="sval neu" id="sd">&#8212;</div><div class="ssub" id="sds">&#8212;</div></div>
@@ -352,6 +680,90 @@ tbody tr:hover td{background:var(--bg2);}
       <span style="font-size:12px;color:var(--text2);">Capital neto: <strong id="cap-neto">—</strong></span>
     </div>
   </div></div>
+</div>
+</div>
+
+<div id="section-aster" style="display:none;">
+  <div class="stats">
+    <div class="stat"><div class="slbl">P&L Total</div><div class="sval neu" id="at-sp">&#8212;</div><div class="ssub">trades + funding</div></div>
+    <div class="stat"><div class="slbl">P&L Hoy</div><div class="sval neu" id="at-sd">&#8212;</div><div class="ssub" id="at-sds">&#8212;</div></div>
+    <div class="stat"><div class="slbl">Funding Total</div><div class="sval neu" id="at-sf">&#8212;</div><div class="ssub">fees acumulados</div></div>
+    <div class="stat"><div class="slbl">Total cuenta</div><div class="sval neu" id="at-sw">&#8212;</div><div class="ssub">depósitos + P&L</div></div>
+  </div>
+  <div class="stats" style="margin-top:-2px;">
+    <div class="stat"><div class="slbl">% Rentabilidad</div><div class="sval neu" id="at-sg">&#8212;</div><div class="ssub" id="at-sgs">sobre capital invertido</div></div>
+    <div class="stat"><div class="slbl">P&L 7 dias</div><div class="sval neu" id="at-s7">&#8212;</div><div class="ssub">&#8212;</div></div>
+    <div class="stat"><div class="slbl">P&L 30 dias</div><div class="sval neu" id="at-s30">&#8212;</div><div class="ssub">&#8212;</div></div>
+    <div class="stat"><div class="slbl">Win Rate</div><div class="sval neu" id="at-swr">&#8212;</div><div class="ssub" id="at-swrs">&#8212;</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="at-tab-daily" onclick="atShowPane('daily')"><i class="ti ti-calendar"></i> Diario</button>
+    <button class="tab" id="at-tab-monthly" onclick="atShowPane('monthly')"><i class="ti ti-calendar-month"></i> Mensual</button>
+    <button class="tab" id="at-tab-bycoin" onclick="atShowPane('bycoin')"><i class="ti ti-coin"></i> X Activo</button>
+    <button class="tab" id="at-tab-daily-asset" onclick="atShowPane('daily-asset')"><i class="ti ti-table"></i> Diario x Activo</button>
+    <button class="tab" id="at-tab-upload" onclick="atShowPane('upload')"><i class="ti ti-upload"></i> Subir CSV</button>
+  </div>
+
+  <!-- DIARIO -->
+  <div class="pane on" id="at-pane-daily">
+    <div class="card"><div class="cwrap" style="height:220px;"><canvas id="at-dailyChart">Sin datos</canvas></div></div>
+    <div class="card" style="margin-top:1rem;"><div class="cb"><div class="ox">
+      <table><thead><tr><th>Fecha</th><th>Trades</th><th>P&L día</th><th>Funding</th><th>Total</th><th>% cuenta</th><th>WR</th></tr></thead>
+      <tbody id="at-daily-body"><tr><td colspan="7" class="empty">Sin datos.</td></tr></tbody>
+      </table>
+    </div></div></div>
+  </div>
+
+  <!-- MENSUAL -->
+  <div class="pane" id="at-pane-monthly">
+    <div class="card"><div class="cb"><div class="ox">
+      <table><thead><tr><th>Mes</th><th>Trades</th><th>P&L trades</th><th>Funding</th><th>P&L total</th><th>% cuenta</th><th>WR</th></tr></thead>
+      <tbody id="at-monthly-body"><tr><td colspan="7" class="empty">Sin datos.</td></tr></tbody>
+      </table>
+    </div></div></div>
+    <div class="card" style="margin-top:1rem;"><div class="cwrap" style="height:240px;"><canvas id="at-monthlyChart">Sin datos</canvas></div></div>
+  </div>
+
+  <!-- X ACTIVO -->
+  <div class="pane" id="at-pane-bycoin">
+    <div class="card"><div class="cb"><div class="ox">
+      <table><thead><tr><th>Activo</th><th>Trades</th><th>P&L trades</th><th>Funding</th><th>P&L total</th><th>% total</th><th>WR</th></tr></thead>
+      <tbody id="at-coin-table"></tbody>
+      </table>
+    </div></div></div>
+  </div>
+
+  <!-- DIARIO X ACTIVO -->
+  <div class="pane" id="at-pane-daily-asset">
+    <div class="card"><div class="cb">
+      <div class="ox" id="at-daily-asset-wrap">
+        <table id="at-daily-asset-table" style="min-width:600px;">
+          <thead id="at-daily-asset-head"></thead>
+          <tbody id="at-daily-asset-body"><tr><td class="empty">Sin datos.</td></tr></tbody>
+        </table>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- SUBIR CSV -->
+  <div class="pane" id="at-pane-upload">
+    <div class="card"><div class="cb">
+      <p style="font-size:15px;font-weight:600;margin-bottom:8px;">Subir historial Aster</p>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Exporta el CSV desde Aster → Historial de transacciones. Puedes subir múltiples archivos sin duplicar operaciones.</p>
+      <div class="field">
+        <label>Seleccionar CSV de Aster</label>
+        <input type="file" id="at-csv-input" accept=".csv" onchange="atLoadCsv(this)">
+      </div>
+      <div id="at-upload-status" style="margin-top:10px;font-size:13px;color:var(--text2);"></div>
+      <div style="margin-top:14px;display:flex;gap:8px;">
+        <button class="btn bg" onclick="atClearData()" style="color:var(--red);">🗑 Borrar todos los datos</button>
+      </div>
+      <div style="margin-top:14px;padding:10px 12px;background:var(--bg2);border-radius:var(--r);">
+        <span style="font-size:12px;color:var(--text2);">Registros almacenados: <strong id="at-stored-count">0</strong></span>
+      </div>
+    </div></div>
+  </div>
 </div>
 
 </div>
@@ -866,6 +1278,325 @@ document.addEventListener('DOMContentLoaded',function(){
   if(d)d.valueAsDate=new Date();
   renderMovimientos();
 });
+
+
+// ══════════════════════════════════════
+// ASTER - CSV Storage & Analytics
+// ══════════════════════════════════════
+const AT_KEY = 'aster-trades-v1';
+const AT_FUND_KEY = 'aster-funding-v1';
+let AT_TRADES = [];
+let AT_FUNDING = [];
+let AT_CHARTS = {};
+let currentExchange = 'lighter';
+
+function switchExchange(ex){
+  currentExchange = ex;
+  document.getElementById('section-lighter').style.display = ex==='lighter'?'':'none';
+  document.getElementById('section-aster').style.display = ex==='aster'?'':'none';
+  document.getElementById('exch-lighter').classList.toggle('active', ex==='lighter');
+  document.getElementById('exch-aster').classList.toggle('active', ex==='aster');
+  document.getElementById('hdr-title').textContent = ex==='lighter'?'Lighter Tracker':'Aster Tracker';
+  if(ex==='aster'){atLoadStored();atShowPane('daily');}
+}
+
+function atLoadStored(){
+  try{
+    const td = localStorage.getItem(AT_KEY);
+    const fd = localStorage.getItem(AT_FUND_KEY);
+    AT_TRADES = td ? JSON.parse(td) : [];
+    AT_FUNDING = fd ? JSON.parse(fd) : [];
+  }catch(e){ AT_TRADES=[]; AT_FUNDING=[]; }
+  atRenderStats();
+  atShowPane(document.querySelector('#section-aster .pane.on')?.id?.replace('at-pane-','') || 'daily');
+  const el = document.getElementById('at-stored-count');
+  if(el) el.textContent = AT_TRADES.length + ' trades, ' + AT_FUNDING.length + ' funding';
+}
+
+function atLoadCsv(input){
+  const file = input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const text = e.target.result;
+    const {trades, funding, skipped} = atParseCsv(text);
+    // Merge without duplicates using key = time+type+amount+symbol
+    const existingKeys = new Set(AT_TRADES.map(t=>t._key));
+    const existingFKeys = new Set(AT_FUNDING.map(f=>f._key));
+    let addedT=0, addedF=0;
+    trades.forEach(t=>{ if(!existingKeys.has(t._key)){AT_TRADES.push(t);addedT++;} });
+    funding.forEach(f=>{ if(!existingFKeys.has(f._key)){AT_FUNDING.push(f);addedF++;} });
+    localStorage.setItem(AT_KEY, JSON.stringify(AT_TRADES));
+    localStorage.setItem(AT_FUND_KEY, JSON.stringify(AT_FUNDING));
+    const status = document.getElementById('at-upload-status');
+    if(status) status.innerHTML = '<span class="pos">✓ Añadidos: '+addedT+' trades, '+addedF+' funding. Saltados (duplicados): '+skipped+'</span>';
+    const el = document.getElementById('at-stored-count');
+    if(el) el.textContent = AT_TRADES.length + ' trades, ' + AT_FUNDING.length + ' funding';
+    atRenderStats();
+    atShowPane('daily');
+  };
+  reader.readAsText(file);
+}
+
+function atParseCsv(text){
+  const trades=[], funding=[], lines=text.trim().split('\n');
+  let skipped=0;
+  lines.slice(1).forEach(line=>{
+    const parts = line.split(',');
+    if(parts.length < 4) return;
+    const time = parts[0].trim();
+    const type = parts[1].trim();
+    const amountRaw = parts[2].trim();
+    const symbol = parts[3].trim().replace('USDT','').replace('\r','');
+    const amount = parseFloat(amountRaw.replace(' USDT','').replace('\r',''));
+    if(isNaN(amount)) return;
+    const key = time+'|'+type+'|'+amountRaw+'|'+symbol;
+    const ts = new Date(time).getTime();
+    if(type === 'PNL Realizado'){
+      trades.push({_key:key, ts, date:time.slice(0,10), symbol, pnl:amount});
+    } else if(type === 'Tarifa de financiamiento'){
+      funding.push({_key:key, ts, date:time.slice(0,10), symbol, payment:amount});
+    }
+  });
+  return {trades, funding, skipped};
+}
+
+function atClearData(){
+  if(!confirm('¿Borrar todos los datos de Aster?')) return;
+  AT_TRADES=[]; AT_FUNDING=[];
+  localStorage.removeItem(AT_KEY);
+  localStorage.removeItem(AT_FUND_KEY);
+  atRenderStats();
+  atShowPane('daily');
+  const el = document.getElementById('at-stored-count');
+  if(el) el.textContent = '0';
+}
+
+function atShowPane(t){
+  document.querySelectorAll('#section-aster .pane').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('#section-aster .tab').forEach(b=>b.classList.remove('active'));
+  const pane = document.getElementById('at-pane-'+t);
+  const tab = document.getElementById('at-tab-'+t);
+  if(pane) pane.classList.add('on');
+  if(tab) tab.classList.add('active');
+  if(t==='daily') atRenderDaily();
+  else if(t==='monthly') atRenderMonthly();
+  else if(t==='bycoin') atRenderByCoin();
+  else if(t==='daily-asset') atRenderDailyAsset();
+}
+
+function atGetCapital(){
+  try{const raw=localStorage.getItem('lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}
+}
+
+function atRenderStats(){
+  const trades = AT_TRADES;
+  const funding = AT_FUNDING;
+  const totalPnl = trades.reduce((a,t)=>a+t.pnl,0);
+  const totalFund = funding.reduce((a,f)=>a+f.payment,0);
+  const totalCombined = totalPnl + totalFund;
+  const wins = trades.filter(t=>t.pnl>0).length;
+  const losses = trades.filter(t=>t.pnl<0).length;
+  const wr = trades.length ? Math.round(wins/trades.length*100) : 0;
+  const now = Date.now();
+  const todayStart = new Date().setHours(0,0,0,0);
+  const todayPnl = trades.filter(t=>t.ts>=todayStart).reduce((a,t)=>a+t.pnl,0);
+  const p7 = trades.filter(t=>t.ts>=now-7*86400000).reduce((a,t)=>a+t.pnl,0);
+  const p30 = trades.filter(t=>t.ts>=now-30*86400000).reduce((a,t)=>a+t.pnl,0);
+  const cap = atGetCapital();
+  const totalAcc = cap + totalCombined;
+  const rentPct = cap>0?(totalCombined/cap)*100:0;
+
+  function sv(id,val,cls){const e=document.getElementById(id);if(e){e.textContent=(val>=0?'+':'')+val.toFixed(2)+' U';e.className='sval '+(val>0?'pos':val<0?'neg':'neu');}}
+  sv('at-sp', totalCombined);
+  sv('at-sd', todayPnl);
+  sv('at-sf', totalFund);
+  sv('at-s7', p7);
+  sv('at-s30', p30);
+  const swEl=document.getElementById('at-sw');
+  if(swEl){swEl.textContent='$'+totalAcc.toFixed(2);swEl.className='sval '+(totalAcc>cap?'pos':totalAcc<cap?'neg':'neu');}
+  const sgEl=document.getElementById('at-sg');
+  if(sgEl){sgEl.textContent=(rentPct>=0?'+':'')+rentPct.toFixed(2)+'%';sgEl.className='sval '+(rentPct>0?'pos':rentPct<0?'neg':'neu');}
+  const sgsEl=document.getElementById('at-sgs');
+  if(sgsEl) sgsEl.textContent='sobre '+cap.toFixed(0)+' USDC invertidos';
+  const swrEl=document.getElementById('at-swr');
+  if(swrEl){swrEl.textContent=wr+'%';swrEl.className='sval '+(wr>=50?'pos':wr<50&&trades.length?'neg':'neu');}
+  const swrsEl=document.getElementById('at-swrs');
+  if(swrsEl) swrsEl.textContent=wins+' ganad. / '+losses+' perd.';
+}
+
+function atRenderDaily(){
+  const map={}, fundMap={};
+  AT_TRADES.forEach(t=>{
+    if(!map[t.date])map[t.date]={pnl:0,count:0,wins:0,pnls:[]};
+    map[t.date].pnl+=t.pnl; map[t.date].count++;
+    map[t.date].pnls.push(t.pnl);
+    if(t.pnl>0)map[t.date].wins++;
+  });
+  AT_FUNDING.forEach(f=>{fundMap[f.date]=(fundMap[f.date]||0)+f.payment;});
+  const allDates=new Set([...Object.keys(map),...Object.keys(fundMap)]);
+  const days=[...allDates].sort((a,b)=>b.localeCompare(a));
+  const cap=atGetCapital();
+  const sortedAsc=[...days].sort((a,b)=>a.localeCompare(b));
+  let runPnl=0;
+  const balMap={};
+  sortedAsc.forEach(d=>{balMap[d]=cap+runPnl;runPnl+=(map[d]?.pnl||0)+(fundMap[d]||0);});
+
+  const body=document.getElementById('at-daily-body');
+  if(!days.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos. Sube un CSV en la pestaña "Subir CSV".</td></tr>';return;}
+  body.innerHTML=days.map(d=>{
+    const m=map[d]||{pnl:0,count:0,wins:0,pnls:[]};
+    const fund=fundMap[d]||0;
+    const total=m.pnl+fund;
+    const pc=m.pnl>0?'pos':m.pnl<0?'neg':'neu';
+    const tc=total>0?'pos':total<0?'neg':'neu';
+    const fp=fund>0?'pos':fund<0?'neg':'neu';
+    const wr=m.pnls.length?Math.round(m.wins/m.pnls.length*100):0;
+    const bal=balMap[d]||cap;
+    const pctDay=bal>0?(total/bal)*100:0;
+    return '<tr>'
+      +'<td style="white-space:nowrap;font-weight:500;">'+d+'</td>'
+      +'<td>'+m.count+'</td>'
+      +'<td><span class="'+pc+'">'+(m.pnl>=0?'+':'')+m.pnl.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(pctDay>=0?'+':'')+pctDay.toFixed(2)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+
+  // Chart last 30 days
+  const last30=sortedAsc.slice(-30);
+  if(AT_CHARTS.daily) AT_CHARTS.daily.destroy();
+  AT_CHARTS.daily=new Chart(document.getElementById('at-dailyChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:last30.map(d=>d.slice(5)),datasets:[
+      {label:'Trades',data:last30.map(d=>(map[d]?.pnl||0).toFixed(4)),backgroundColor:last30.map(d=>(map[d]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:3},
+      {label:'Funding',data:last30.map(d=>(fundMap[d]||0).toFixed(4)),backgroundColor:'rgba(100,100,200,0.5)',borderRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'var(--text)',font:{size:11}}}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:10}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{autoSkip:true,maxTicksLimit:15,font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+function atRenderMonthly(){
+  const map={}, fundMap={};
+  AT_TRADES.forEach(t=>{
+    const k=t.date.slice(0,7);
+    if(!map[k])map[k]={pnl:0,count:0,wins:0};
+    map[k].pnl+=t.pnl; map[k].count++;
+    if(t.pnl>0)map[k].wins++;
+  });
+  AT_FUNDING.forEach(f=>{const k=f.date.slice(0,7);fundMap[k]=(fundMap[k]||0)+f.payment;});
+  const allM=new Set([...Object.keys(map),...Object.keys(fundMap)]);
+  const months=[...allM].sort((a,b)=>b.localeCompare(a));
+  const cap=atGetCapital();
+  const sortedAsc=[...months].sort((a,b)=>a.localeCompare(b));
+  let runPnl=0; const balMap={};
+  sortedAsc.forEach(m=>{balMap[m]=cap+runPnl;runPnl+=(map[m]?.pnl||0)+(fundMap[m]||0);});
+
+  const body=document.getElementById('at-monthly-body');
+  if(!months.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
+  body.innerHTML=months.map(m=>{
+    const d=map[m]||{pnl:0,count:0,wins:0};
+    const fund=fundMap[m]||0;
+    const total=d.pnl+fund;
+    const pc=d.pnl>0?'pos':d.pnl<0?'neg':'neu';
+    const tc=total>0?'pos':total<0?'neg':'neu';
+    const fp=fund>0?'pos':fund<0?'neg':'neu';
+    const wr=d.count?Math.round(d.wins/d.count*100):0;
+    const bal=balMap[m]||cap;
+    const pct=bal>0?(total/bal)*100:0;
+    return '<tr>'
+      +'<td style="font-weight:600;">'+m+'</td>'
+      +'<td>'+d.count+'</td>'
+      +'<td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+
+  const last12=sortedAsc.slice(-12);
+  if(AT_CHARTS.monthly) AT_CHARTS.monthly.destroy();
+  AT_CHARTS.monthly=new Chart(document.getElementById('at-monthlyChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:last12,datasets:[
+      {label:'Trades',data:last12.map(m=>(map[m]?.pnl||0).toFixed(2)),backgroundColor:last12.map(m=>(map[m]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:3},
+      {label:'Funding',data:last12.map(m=>(fundMap[m]||0).toFixed(4)),backgroundColor:'rgba(100,100,200,0.5)',borderRadius:3}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'var(--text)',font:{size:11}}}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
+  });
+}
+
+function atRenderByCoin(){
+  const map={}, fundMap={};
+  AT_TRADES.forEach(t=>{
+    if(!map[t.symbol])map[t.symbol]={pnl:0,count:0,wins:0};
+    map[t.symbol].pnl+=t.pnl; map[t.symbol].count++;
+    if(t.pnl>0)map[t.symbol].wins++;
+  });
+  AT_FUNDING.forEach(f=>{fundMap[f.symbol]=(fundMap[f.symbol]||0)+f.payment;});
+  const allS=new Set([...Object.keys(map),...Object.keys(fundMap)]);
+  const sorted=[...allS].map(s=>({
+    symbol:s,
+    pnl:map[s]?.pnl||0,
+    count:map[s]?.count||0,
+    wins:map[s]?.wins||0,
+    funding:fundMap[s]||0,
+    total:(map[s]?.pnl||0)+(fundMap[s]||0)
+  })).sort((a,b)=>b.total-a.total);
+  const totalAll=sorted.reduce((a,x)=>a+x.total,0);
+  document.getElementById('at-coin-table').innerHTML=sorted.map(x=>{
+    const pc=x.pnl>0?'pos':x.pnl<0?'neg':'neu';
+    const tc=x.total>0?'pos':x.total<0?'neg':'neu';
+    const fp=x.funding>0?'pos':x.funding<0?'neg':'neu';
+    const wr=x.count?Math.round(x.wins/x.count*100):0;
+    const pct=totalAll?((x.total/Math.abs(totalAll))*100):0;
+    return '<tr>'
+      +'<td><strong>'+x.symbol+'</strong></td>'
+      +'<td>'+x.count+'</td>'
+      +'<td><span class="'+pc+'">'+(x.pnl>=0?'+':'')+x.pnl.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+fp+'">'+(x.funding>=0?'+':'')+x.funding.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(x.total>=0?'+':'')+x.total.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function atRenderDailyAsset(){
+  const map={};
+  const days=[], symbols=[];
+  AT_TRADES.forEach(t=>{
+    if(!map[t.date])map[t.date]={};
+    map[t.date][t.symbol]=(map[t.date][t.symbol]||0)+t.pnl;
+    if(!days.includes(t.date))days.push(t.date);
+    if(!symbols.includes(t.symbol))symbols.push(t.symbol);
+  });
+  days.sort((a,b)=>b.localeCompare(a));
+  symbols.sort();
+  document.getElementById('at-daily-asset-head').innerHTML=
+    '<tr><th style="white-space:nowrap;">Fecha</th>'
+    +symbols.map(s=>'<th>'+s+'</th>').join('')
+    +'<th>Total día</th></tr>';
+  document.getElementById('at-daily-asset-body').innerHTML=days.map(day=>{
+    let dayTotal=0;
+    const cells=symbols.map(sym=>{
+      const val=map[day][sym];
+      if(val===undefined) return '<td style="color:var(--text3);">—</td>';
+      dayTotal+=val;
+      const pc=val>0?'pos':val<0?'neg':'neu';
+      return '<td><span class="'+pc+'">'+(val>=0?'+':'')+val.toFixed(2)+'</span></td>';
+    });
+    const dtc=dayTotal>0?'pos':dayTotal<0?'neg':'neu';
+    return '<tr>'
+      +'<td style="white-space:nowrap;font-weight:500;">'+day+'</td>'
+      +cells.join('')
+      +'<td style="font-weight:600;"><span class="'+dtc+'">'+(dayTotal>=0?'+':'')+dayTotal.toFixed(2)+'</span></td>'
+      +'</tr>';
+  }).join('');
+}
 
 </script>
 </body>
