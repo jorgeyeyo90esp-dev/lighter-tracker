@@ -610,6 +610,7 @@ tbody tr:hover td{background:var(--bg2);}
   <button class="tab" id="tab-daily" onclick="showPane('daily')"><i class="ti ti-calendar"></i> Diario</button>
   <button class="tab" id="tab-chart" onclick="showPane('chart')"><i class="ti ti-chart-line"></i> Grafica</button>
   <button class="tab" id="tab-monthly" onclick="showPane('monthly')"><i class="ti ti-calendar-month"></i> Mensual</button>
+  <button class="tab" id="tab-weekly" onclick="showPane('weekly')"><i class="ti ti-calendar-week"></i> Semanal</button>
   <button class="tab" id="tab-daily-asset" onclick="showPane('daily-asset')"><i class="ti ti-table"></i> Diario x Activo</button>
   <button class="tab" id="tab-config" onclick="showPane('config')"><i class="ti ti-settings"></i> Config</button>
 </div>
@@ -674,6 +675,20 @@ tbody tr:hover td{background:var(--bg2);}
   </div></div></div>
   <div class="card" style="margin-top:1rem;"><div class="cwrap" style="height:260px;">
     <canvas id="monthlyChart" role="img" aria-label="PNL mensual">Sin datos</canvas>
+  </div></div>
+</div>
+
+<!-- SEMANAL -->
+<div class="pane" id="pane-weekly">
+  <div class="card"><div class="cb"><div class="ox">
+    <table><thead><tr>
+      <th>Semana</th><th>Trades</th><th>P&amp;L trades</th><th>Funding</th><th>P&amp;L total</th><th>% cuenta</th><th>WR</th>
+    </tr></thead>
+    <tbody id="weekly-body"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+    </table>
+  </div></div></div>
+  <div class="card" style="margin-top:1rem;"><div class="cwrap" style="height:260px;">
+    <canvas id="weeklyChart" role="img" aria-label="PNL semanal">Sin datos</canvas>
   </div></div>
 </div>
 
@@ -801,7 +816,21 @@ tbody tr:hover td{background:var(--bg2);}
     </div></div></div>
   </div>
 
-  <!-- DIARIO X ACTIVO -->
+  <!-- SEMANAL -->
+<div class="pane" id="pane-weekly">
+  <div class="card"><div class="cb"><div class="ox">
+    <table><thead><tr>
+      <th>Semana</th><th>Trades</th><th>P&amp;L trades</th><th>Funding</th><th>P&amp;L total</th><th>% cuenta</th><th>WR</th>
+    </tr></thead>
+    <tbody id="weekly-body"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+    </table>
+  </div></div></div>
+  <div class="card" style="margin-top:1rem;"><div class="cwrap" style="height:260px;">
+    <canvas id="weeklyChart" role="img" aria-label="PNL semanal">Sin datos</canvas>
+  </div></div>
+</div>
+
+<!-- DIARIO X ACTIVO -->
   <div class="pane" id="at-pane-daily-asset">
     <div class="card"><div class="cb">
       <div class="ox" id="at-daily-asset-wrap">
@@ -939,6 +968,7 @@ function showPane(t){
   if(t==='bycoin')renderByCoin();
   if(t==='daily')renderDaily();
   if(t==='monthly')renderMonthly();
+  if(t==='weekly')renderWeekly();
   if(t==='daily-asset')renderDailyAsset();
   if(t==='positions')renderPositions();
 }
@@ -1145,6 +1175,99 @@ function renderDailyAsset(){
       +'<td style="font-weight:600;"><span class="'+dtc+'">'+(dayTotal>=0?'+':'')+dayTotal.toFixed(2)+'</span></td>'
       +'</tr>';
   }).join('');
+}
+
+function getWeekKey(dateStr){
+  // Returns YYYY-Www (ISO week)
+  const d = new Date(dateStr + 'T00:00:00Z');
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const year = d.getUTCFullYear();
+  const startOfYear = new Date(Date.UTC(year, 0, 1));
+  const week = Math.ceil((((d - startOfYear) / 86400000) + 1) / 7);
+  return year + '-W' + String(week).padStart(2,'0');
+}
+
+function getWeekRange(weekKey){
+  const [year, w] = weekKey.split('-W');
+  const simple = new Date(Date.UTC(parseInt(year), 0, 1 + (parseInt(w) - 1) * 7));
+  const dow = simple.getUTCDay();
+  const monday = new Date(simple);
+  monday.setUTCDate(simple.getUTCDate() - (dow === 0 ? 6 : dow - 1));
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const fmt = d => d.toISOString().slice(5,10);
+  return fmt(monday) + ' → ' + fmt(sunday);
+}
+
+function renderWeekly(){
+  const closes=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const map={}, fundMap={};
+  closes.forEach(t=>{
+    const day=pts(t.ts).toISOString().slice(0,10);
+    const k=getWeekKey(day);
+    if(!map[k])map[k]={pnl:0,count:0,wins:0};
+    map[k].pnl+=t.pnl; map[k].count++;
+    if(t.pnl>0)map[k].wins++;
+  });
+  (window.FUNDING_LIST||[]).forEach(f=>{
+    if(!f.ts) return;
+    const ts=parseInt(f.ts);
+    const tsMs=ts<1000000000000?ts*1000:ts;
+    const day=new Date(tsMs).toISOString().slice(0,10);
+    const k=getWeekKey(day);
+    fundMap[k]=(fundMap[k]||0)+(f.payment||0);
+  });
+  const allW=new Set([...Object.keys(map),...Object.keys(fundMap)]);
+  const weeks=[...allW].sort((a,b)=>b.localeCompare(a));
+  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem('lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
+  const sortedAsc=[...weeks].sort((a,b)=>a.localeCompare(b));
+  let runPnl=0; const balMap={};
+  sortedAsc.forEach(w=>{balMap[w]=INITIAL_CAPITAL+runPnl;runPnl+=(map[w]?.pnl||0)+(fundMap[w]||0);});
+
+  const body=document.getElementById('weekly-body');
+  if(!weeks.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
+  body.innerHTML=weeks.map(w=>{
+    const d=map[w]||{pnl:0,count:0,wins:0};
+    const fund=fundMap[w]||0;
+    const total=d.pnl+fund;
+    const pc=d.pnl>0?'pos':d.pnl<0?'neg':'neu';
+    const tc=total>0?'pos':total<0?'neg':'neu';
+    const fp=fund>0?'pos':fund<0?'neg':'neu';
+    const wr=d.count?Math.round(d.wins/d.count*100):0;
+    const bal=balMap[w]||INITIAL_CAPITAL;
+    const pct=bal>0?(total/bal)*100:0;
+    return '<tr>'
+      +'<td style="font-weight:600;white-space:nowrap;">'+w+'<br><small style="color:var(--text3);font-weight:400;">'+getWeekRange(w)+'</small></td>'
+      +'<td>'+d.count+'</td>'
+      +'<td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+
+  // Chart last 12 weeks
+  const last12=sortedAsc.slice(-12);
+  if(window._weeklyChart) window._weeklyChart.destroy();
+  window._weeklyChart=new Chart(document.getElementById('weeklyChart').getContext('2d'),{
+    type:'bar',
+    data:{
+      labels:last12.map(w=>w.slice(5)),
+      datasets:[
+        {label:'Trades',data:last12.map(w=>(map[w]?.pnl||0).toFixed(2)),backgroundColor:last12.map(w=>(map[w]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:4},
+        {label:'Funding',data:last12.map(w=>(fundMap[w]||0).toFixed(4)),backgroundColor:'rgba(100,100,200,0.5)',borderRadius:4}
+      ]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'var(--text)',font:{size:11}}}},
+      scales:{
+        y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},
+        x:{ticks:{font:{size:11}},grid:{display:false}}
+      }
+    }
+  });
 }
 
 function renderMonthly(){
