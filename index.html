@@ -480,6 +480,339 @@ document.addEventListener('DOMContentLoaded',function(){
   if(d) d.valueAsDate=new Date();
 });
 
+
+// ══════════════════════════════════════
+// BITUNIX
+// ══════════════════════════════════════
+let BX_T = [], BX_S = {}, BX_CHARTS = {};
+
+function bxGetCapital(){
+  try{const raw=localStorage.getItem('bx-movimientos');if(!raw)return 0;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||0;}catch(e){return 0;}
+}
+
+function bxLoadMovimientos(){
+  try{const raw=localStorage.getItem('bx-movimientos');return raw?JSON.parse(raw):[];}catch(e){return [];}
+}
+function bxSaveMovimientos(movs){localStorage.setItem('bx-movimientos',JSON.stringify(movs));}
+
+function bxAddMovimiento(){
+  const tipo=document.getElementById('bx-mov-tipo').value;
+  const amount=parseFloat(document.getElementById('bx-mov-amount').value);
+  const date=document.getElementById('bx-mov-date').value;
+  if(!amount||amount<=0||!date){alert('Rellena importe y fecha.');return;}
+  const movs=bxLoadMovimientos();
+  movs.push({id:Date.now(),tipo,amount,date});
+  bxSaveMovimientos(movs);
+  document.getElementById('bx-mov-amount').value='';
+  bxRenderMovimientos();
+  bxRenderStats();
+}
+
+function bxDeleteMovimiento(id){
+  bxSaveMovimientos(bxLoadMovimientos().filter(m=>m.id!==id));
+  bxRenderMovimientos();
+  bxRenderStats();
+}
+
+function bxRenderMovimientos(){
+  const movs=bxLoadMovimientos().sort((a,b)=>a.date.localeCompare(b.date));
+  const body=document.getElementById('bx-mov-body');
+  if(!body)return;
+  let cum=0,totalDep=0,totalRet=0;
+  body.innerHTML=movs.map(m=>{
+    if(m.tipo==='deposit'){cum+=m.amount;totalDep+=m.amount;}
+    else{cum-=m.amount;totalRet+=m.amount;}
+    const tc=m.tipo==='deposit'?'pos':'neg';
+    return '<tr>'
+      +'<td>'+m.date+'</td>'
+      +'<td><span class="'+tc+'" style="font-weight:600;">'+(m.tipo==='deposit'?'Depósito':'Retiro')+'</span></td>'
+      +'<td><span class="'+tc+'">'+(m.tipo==='deposit'?'+':'-')+m.amount.toFixed(2)+' USDT</span></td>'
+      +'<td>'+cum.toFixed(2)+' USDT</td>'
+      +'<td><button class="btn bg" style="padding:2px 8px;font-size:11px;" onclick="bxDeleteMovimiento('+m.id+')">✕</button></td>'
+      +'</tr>';
+  }).join('')||'<tr><td colspan="5" class="empty">Sin movimientos.</td></tr>';
+  const elD=document.getElementById('bx-cap-dep');
+  const elR=document.getElementById('bx-cap-ret');
+  const elN=document.getElementById('bx-cap-net');
+  if(elD)elD.textContent=totalDep.toFixed(2)+' USDT';
+  if(elR)elR.textContent=totalRet.toFixed(2)+' USDT';
+  if(elN)elN.textContent=(totalDep-totalRet).toFixed(2)+' USDT';
+}
+
+async function bxFetchData(){
+  const u=getUrl();if(!u)return;
+  try{
+    const [sr,tr]=await Promise.all([fetch(u+'/bx/summary'),fetch(u+'/bx/trades?limit=20000')]);
+    if(sr.ok) BX_S=await sr.json();
+    if(tr.ok) BX_T=(await tr.json()).trades||[];
+    bxRenderStats();
+    bxShowPane(document.querySelector('#section-bitunix .pane.on')?.id?.replace('bx-pane-','')||'history');
+  }catch(e){console.error('Bitunix fetch error:',e);}
+}
+
+function bxRenderStats(){
+  const S=BX_S;
+  const cap=bxGetCapital();
+  const totalPnl=S.total_pnl||0;
+  const totalAcc=cap+totalPnl;
+  const rentPct=cap>0?(totalPnl/cap)*100:0;
+
+  function sv(id,val){const e=document.getElementById(id);if(e){e.textContent=(val>=0?'+':'')+val.toFixed(2)+' U';e.className='sval '+(val>0?'pos':val<0?'neg':'neu');}}
+  sv('bx-sp',totalPnl);
+  sv('bx-sd',S.today_pnl||0);
+  sv('bx-s7',S.p7||0);
+  sv('bx-s30',S.p30||0);
+  const swEl=document.getElementById('bx-sw');
+  if(swEl){swEl.textContent='$'+totalAcc.toFixed(2);swEl.className='sval '+(totalAcc>cap?'pos':totalAcc<cap?'neg':'neu');}
+  const sgEl=document.getElementById('bx-sg');
+  if(sgEl){sgEl.textContent=(rentPct>=0?'+':'')+rentPct.toFixed(2)+'%';sgEl.className='sval '+(rentPct>0?'pos':rentPct<0?'neg':'neu');}
+  const sgsEl=document.getElementById('bx-sgs');
+  if(sgsEl)sgsEl.textContent='sobre '+cap.toFixed(0)+' USDT invertidos';
+  const swrEl=document.getElementById('bx-swr');
+  if(swrEl){swrEl.textContent=(S.win_rate||0)+'%';swrEl.className='sval '+((S.win_rate||0)>=50?'pos':'neg');}
+  const swrsEl=document.getElementById('bx-swrs');
+  if(swrsEl)swrsEl.textContent=(S.wins||0)+' ganad. / '+(S.losses||0)+' perd.';
+  const scEl=document.getElementById('bx-sc');
+  if(scEl){scEl.textContent=(S.closed_trades||0);scEl.className='sval neu';}
+}
+
+function bxShowPane(t){
+  document.querySelectorAll('#section-bitunix .pane').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('#section-bitunix .tab').forEach(b=>b.classList.remove('active'));
+  const pane=document.getElementById('bx-pane-'+t);
+  const tab=document.getElementById('bx-tab-'+t);
+  if(pane)pane.classList.add('on');
+  if(tab)tab.classList.add('active');
+  if(t==='history')bxRenderTable();
+  else if(t==='daily')bxRenderDaily();
+  else if(t==='weekly')bxRenderWeekly();
+  else if(t==='monthly')bxRenderMonthly();
+  else if(t==='bycoin')bxRenderByCoin();
+  else if(t==='daily-asset')bxRenderDailyAsset();
+  else if(t==='config'){bxRenderMovimientos();}
+}
+
+function bxRenderTable(){
+  const closes=BX_T.filter(t=>t.tradeType==='close');
+  const body=document.getElementById('bx-tbody');
+  if(!closes.length){body.innerHTML='<tr><td colspan="7" class="empty">'+(BX_S.initial_load_done===false?'Cargando...':'Sin datos.')+'</td></tr>';return;}
+  body.innerHTML=closes.slice(0,500).map(t=>{
+    const pc=t.pnl>0?'pos':t.pnl<0?'neg':'neu';
+    const date=new Date(t.ts).toLocaleString('es-ES',{timeZone:'Europe/Madrid',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    return '<tr>'
+      +'<td style="white-space:nowrap;font-size:12px;">'+date+'</td>'
+      +'<td><strong>'+t.symbol+'</strong></td>'
+      +'<td><span class="badge '+(t.side==='long'?'blong':'bshort')+'">'+t.side.toUpperCase()+'</span></td>'
+      +'<td>$'+Number(t.price).toFixed(4)+'</td>'
+      +'<td>'+t.size+'</td>'
+      +'<td><span class="'+pc+'">'+(t.pnl>=0?'+':'')+Number(t.pnl).toFixed(4)+' U</span></td>'
+      +'<td>'+Number(t.fee).toFixed(4)+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function bxRenderDaily(){
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const map={};
+  closes.forEach(t=>{
+    const day=new Date(t.ts).toISOString().slice(0,10);
+    if(!map[day])map[day]={pnl:0,count:0,wins:0};
+    map[day].pnl+=t.pnl; map[day].count++;
+    if(t.pnl>0)map[day].wins++;
+  });
+  const days=Object.keys(map).sort((a,b)=>b.localeCompare(a));
+  const cap=bxGetCapital();
+  const sortedAsc=[...days].sort((a,b)=>a.localeCompare(b));
+  let runPnl=0; const balMap={};
+  sortedAsc.forEach(d=>{balMap[d]=cap+runPnl;runPnl+=map[d].pnl;});
+  const grandTotal=closes.reduce((a,t)=>a+t.pnl,0);
+  let cum=grandTotal;
+  const body=document.getElementById('bx-daily-body');
+  if(!days.length){body.innerHTML='<tr><td colspan="6" class="empty">Sin datos.</td></tr>';return;}
+  body.innerHTML=days.map(d=>{
+    const m=map[d];
+    const pc=m.pnl>0?'pos':m.pnl<0?'neg':'neu';
+    const wr=m.count?Math.round(m.wins/m.count*100):0;
+    const bal=balMap[d]||cap||1;
+    const pctDay=bal>0?(m.pnl/bal)*100:0;
+    const cumVal=cum; cum-=m.pnl;
+    return '<tr>'
+      +'<td style="white-space:nowrap;font-weight:500;">'+d+'</td>'
+      +'<td>'+m.count+'</td>'
+      +'<td><span class="'+pc+'">'+(m.pnl>=0?'+':'')+m.pnl.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+pc+'">'+(pctDay>=0?'+':'')+pctDay.toFixed(2)+'%</span></td>'
+      +'<td><span class="'+(cumVal>=0?'pos':'neg')+'">'+(cumVal>=0?'+':'')+cumVal.toFixed(2)+' U</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+  // Chart
+  const last30=sortedAsc.slice(-30);
+  if(BX_CHARTS.daily)BX_CHARTS.daily.destroy();
+  BX_CHARTS.daily=new Chart(document.getElementById('bx-dailyChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:last30.map(d=>d.slice(5)),datasets:[{label:'P&L',data:last30.map(d=>(map[d]?.pnl||0).toFixed(4)),backgroundColor:last30.map(d=>(map[d]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:10}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{autoSkip:true,maxTicksLimit:15,font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+function bxRenderWeekly(){
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const map={};
+  closes.forEach(t=>{
+    const day=new Date(t.ts).toISOString().slice(0,10);
+    const k=getWeekKey(day);
+    if(!map[k])map[k]={pnl:0,count:0,wins:0};
+    map[k].pnl+=t.pnl; map[k].count++;
+    if(t.pnl>0)map[k].wins++;
+  });
+  const weeks=Object.keys(map).sort((a,b)=>b.localeCompare(a));
+  const cap=bxGetCapital();
+  const sortedAsc=[...weeks].sort((a,b)=>a.localeCompare(b));
+  let runPnl=0; const balMap={};
+  sortedAsc.forEach(w=>{balMap[w]=cap+runPnl;runPnl+=map[w].pnl;});
+  const body=document.getElementById('bx-weekly-body');
+  if(!weeks.length){body.innerHTML='<tr><td colspan="5" class="empty">Sin datos.</td></tr>';return;}
+  body.innerHTML=weeks.map(w=>{
+    const m=map[w];
+    const pc=m.pnl>0?'pos':m.pnl<0?'neg':'neu';
+    const wr=m.count?Math.round(m.wins/m.count*100):0;
+    const bal=balMap[w]||cap||1;
+    const pct=bal>0?(m.pnl/bal)*100:0;
+    return '<tr>'
+      +'<td style="font-weight:600;">'+w+'<br><small style="color:var(--text3);font-weight:400;">'+getWeekRange(w)+'</small></td>'
+      +'<td>'+m.count+'</td>'
+      +'<td><span class="'+pc+'">'+(m.pnl>=0?'+':'')+m.pnl.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+  const last12=sortedAsc.slice(-12);
+  if(BX_CHARTS.weekly)BX_CHARTS.weekly.destroy();
+  BX_CHARTS.weekly=new Chart(document.getElementById('bx-weeklyChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:last12.map(w=>w.slice(5)),datasets:[{label:'P&L',data:last12.map(w=>(map[w]?.pnl||0).toFixed(2)),backgroundColor:last12.map(w=>(map[w]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
+  });
+}
+
+function bxRenderMonthly(){
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const map={};
+  closes.forEach(t=>{
+    const k=new Date(t.ts).toISOString().slice(0,7);
+    if(!map[k])map[k]={pnl:0,count:0,wins:0};
+    map[k].pnl+=t.pnl; map[k].count++;
+    if(t.pnl>0)map[k].wins++;
+  });
+  const months=Object.keys(map).sort((a,b)=>b.localeCompare(a));
+  const cap=bxGetCapital();
+  const sortedAsc=[...months].sort((a,b)=>a.localeCompare(b));
+  let runPnl=0; const balMap={};
+  sortedAsc.forEach(m=>{balMap[m]=cap+runPnl;runPnl+=map[m].pnl;});
+  const body=document.getElementById('bx-monthly-body');
+  if(!months.length){body.innerHTML='<tr><td colspan="5" class="empty">Sin datos.</td></tr>';return;}
+  body.innerHTML=months.map(mo=>{
+    const m=map[mo];
+    const pc=m.pnl>0?'pos':m.pnl<0?'neg':'neu';
+    const wr=m.count?Math.round(m.wins/m.count*100):0;
+    const bal=balMap[mo]||cap||1;
+    const pct=bal>0?(m.pnl/bal)*100:0;
+    return '<tr>'
+      +'<td style="font-weight:600;">'+mo+'</td>'
+      +'<td>'+m.count+'</td>'
+      +'<td><span class="'+pc+'">'+(m.pnl>=0?'+':'')+m.pnl.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+  const last12=sortedAsc.slice(-12);
+  if(BX_CHARTS.monthly)BX_CHARTS.monthly.destroy();
+  BX_CHARTS.monthly=new Chart(document.getElementById('bx-monthlyChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:last12,datasets:[{label:'P&L',data:last12.map(m=>(map[m]?.pnl||0).toFixed(2)),backgroundColor:last12.map(m=>(map[m]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
+  });
+}
+
+function bxRenderByCoin(){
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const map={};
+  closes.forEach(t=>{
+    if(!map[t.symbol])map[t.symbol]={pnl:0,count:0,wins:0,best:null,worst:null};
+    const m=map[t.symbol];
+    m.pnl+=t.pnl; m.count++;
+    if(t.pnl>0)m.wins++;
+    if(m.best===null||t.pnl>m.best)m.best=t.pnl;
+    if(m.worst===null||t.pnl<m.worst)m.worst=t.pnl;
+  });
+  const sorted=Object.entries(map).map(([s,m])=>({symbol:s,...m})).sort((a,b)=>b.pnl-a.pnl);
+  const totalPnl=sorted.reduce((a,x)=>a+x.pnl,0);
+  document.getElementById('bx-coin-table').innerHTML=sorted.map(x=>{
+    const pc=x.pnl>0?'pos':x.pnl<0?'neg':'neu';
+    const wr=x.count?Math.round(x.wins/x.count*100):0;
+    const pct=totalPnl?((x.pnl/Math.abs(totalPnl))*100):0;
+    return '<tr>'
+      +'<td><strong>'+x.symbol+'</strong></td>'
+      +'<td>'+x.count+'</td>'
+      +'<td><span class="'+pc+'">'+(x.pnl>=0?'+':'')+x.pnl.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'<td><span class="pos">+'+(x.best||0).toFixed(2)+'</span></td>'
+      +'<td><span class="neg">'+(x.worst||0).toFixed(2)+'</span></td>'
+      +'</tr>';
+  }).join('');
+}
+
+function bxRenderDailyAsset(){
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const map={}, days=[], symbols=[];
+  closes.forEach(t=>{
+    const day=new Date(t.ts).toISOString().slice(0,10);
+    if(!map[day])map[day]={};
+    map[day][t.symbol]=(map[day][t.symbol]||0)+t.pnl;
+    if(!days.includes(day))days.push(day);
+    if(!symbols.includes(t.symbol))symbols.push(t.symbol);
+  });
+  days.sort((a,b)=>b.localeCompare(a)); symbols.sort();
+  document.getElementById('bx-daily-asset-head').innerHTML=
+    '<tr><th style="white-space:nowrap;">Fecha</th>'+symbols.map(s=>'<th>'+s+'</th>').join('')+'<th>Total</th></tr>';
+  document.getElementById('bx-daily-asset-body').innerHTML=days.map(day=>{
+    let total=0;
+    const cells=symbols.map(sym=>{
+      const val=map[day][sym];
+      if(val===undefined)return '<td style="color:var(--text3);">—</td>';
+      total+=val;
+      const pc=val>0?'pos':val<0?'neg':'neu';
+      return '<td><span class="'+pc+'">'+(val>=0?'+':'')+val.toFixed(2)+'</span></td>';
+    });
+    const tc=total>0?'pos':total<0?'neg':'neu';
+    return '<tr><td style="white-space:nowrap;font-weight:500;">'+day+'</td>'+cells.join('')+'<td style="font-weight:600;"><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(2)+'</span></td></tr>';
+  }).join('');
+}
+
+// Update switchExchange to handle bitunix
+const _origSwitch = switchExchange;
+switchExchange = function(ex){
+  document.getElementById('section-lighter').style.display='none';
+  document.getElementById('section-aster').style.display='none';
+  document.getElementById('section-bitunix').style.display='none';
+  document.getElementById('exch-lighter').classList.remove('active');
+  document.getElementById('exch-aster').classList.remove('active');
+  document.getElementById('exch-bitunix').classList.remove('active');
+  document.getElementById('section-'+ex).style.display='';
+  document.getElementById('exch-'+ex).classList.add('active');
+  document.getElementById('hdr-title').textContent=ex==='lighter'?'Lighter Tracker':ex==='aster'?'Aster Tracker':'Bitunix Tracker';
+  currentExchange=ex;
+  if(ex==='lighter'){updateHeader();renderAll();}
+  else if(ex==='aster'){atLoadStored();atRenderMovimientos();atShowPane('daily');}
+  else if(ex==='bitunix'){bxFetchData();bxRenderMovimientos();}
+};
+
+document.addEventListener('DOMContentLoaded',function(){
+  const d=document.getElementById('bx-mov-date');
+  if(d)d.valueAsDate=new Date();
+});
+
 </script>
 <style>
 :root{--bg:#fff;--bg2:#f6f6f4;--bg3:#efefec;--text:#1a1a18;--text2:#6b6b67;--text3:#9b9b96;--bo:rgba(0,0,0,.10);--bo2:rgba(0,0,0,.18);--green:#1D9E75;--gbg:#E1F5EE;--gtxt:#085041;--red:#E24B4A;--rbg:#FCEBEB;--rtxt:#501313;--r:8px;--rl:12px;}
@@ -581,6 +914,7 @@ tbody tr:hover td{background:var(--bg2);}
   <div class="exch-switcher">
     <button class="exch-btn active" id="exch-lighter" onclick="switchExchange('lighter')">⚡ Lighter</button>
     <button class="exch-btn" id="exch-aster" onclick="switchExchange('aster')">🌟 Aster</button>
+    <button class="exch-btn" id="exch-bitunix" onclick="switchExchange('bitunix')">🔥 Bitunix</button>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
     <span style="font-size:11px;color:var(--text3);" id="lu"></span>
@@ -900,6 +1234,131 @@ tbody tr:hover td{background:var(--bg2);}
 </div>
 
 </div>
+
+<!-- BITUNIX SECTION -->
+<div id="section-bitunix" style="display:none;">
+  <div class="stats">
+    <div class="stat"><div class="slbl">P&L Total</div><div class="sval neu" id="bx-sp">&#8212;</div><div class="ssub">trades realizados</div></div>
+    <div class="stat"><div class="slbl">P&L Hoy</div><div class="sval neu" id="bx-sd">&#8212;</div><div class="ssub" id="bx-sds">&#8212;</div></div>
+    <div class="stat"><div class="slbl">P&L 7 días</div><div class="sval neu" id="bx-s7">&#8212;</div><div class="ssub">&#8212;</div></div>
+    <div class="stat"><div class="slbl">Total cuenta</div><div class="sval neu" id="bx-sw">&#8212;</div><div class="ssub">depósitos + P&L</div></div>
+  </div>
+  <div class="stats" style="margin-top:-2px;">
+    <div class="stat"><div class="slbl">% Rentabilidad</div><div class="sval neu" id="bx-sg">&#8212;</div><div class="ssub" id="bx-sgs">sobre capital invertido</div></div>
+    <div class="stat"><div class="slbl">P&L 30 días</div><div class="sval neu" id="bx-s30">&#8212;</div><div class="ssub">&#8212;</div></div>
+    <div class="stat"><div class="slbl">Win Rate</div><div class="sval neu" id="bx-swr">&#8212;</div><div class="ssub" id="bx-swrs">&#8212;</div></div>
+    <div class="stat"><div class="slbl">Trades cerrados</div><div class="sval neu" id="bx-sc">&#8212;</div><div class="ssub">&#8212;</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="bx-tab-history" onclick="bxShowPane('history')"><i class="ti ti-list"></i> Historial</button>
+    <button class="tab" id="bx-tab-daily" onclick="bxShowPane('daily')"><i class="ti ti-calendar"></i> Diario</button>
+    <button class="tab" id="bx-tab-weekly" onclick="bxShowPane('weekly')"><i class="ti ti-calendar-week"></i> Semanal</button>
+    <button class="tab" id="bx-tab-monthly" onclick="bxShowPane('monthly')"><i class="ti ti-calendar-month"></i> Mensual</button>
+    <button class="tab" id="bx-tab-bycoin" onclick="bxShowPane('bycoin')"><i class="ti ti-coin"></i> X Activo</button>
+    <button class="tab" id="bx-tab-daily-asset" onclick="bxShowPane('daily-asset')"><i class="ti ti-table"></i> Diario x Activo</button>
+    <button class="tab" id="bx-tab-config" onclick="bxShowPane('config')"><i class="ti ti-settings"></i> Config</button>
+  </div>
+
+  <!-- HISTORIAL -->
+  <div class="pane on" id="bx-pane-history">
+    <div class="card"><div class="cb"><div class="ox">
+      <table><thead><tr><th>Fecha</th><th>Mercado</th><th>Tipo</th><th>Precio</th><th>Tamaño</th><th>P&amp;L</th><th>Fee</th></tr></thead>
+      <tbody id="bx-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
+      </table>
+    </div></div></div>
+  </div>
+
+  <!-- DIARIO -->
+  <div class="pane" id="bx-pane-daily">
+    <div class="card"><div class="cwrap" style="height:220px;"><canvas id="bx-dailyChart">Sin datos</canvas></div></div>
+    <div class="card" style="margin-top:1rem;"><div class="cb"><div class="ox">
+      <table><thead><tr><th>Fecha</th><th>Trades</th><th>P&amp;L día</th><th>% cuenta</th><th>Acumulado</th><th>WR</th></tr></thead>
+      <tbody id="bx-daily-body"></tbody>
+      </table>
+    </div></div></div>
+  </div>
+
+  <!-- SEMANAL -->
+  <div class="pane" id="bx-pane-weekly">
+    <div class="card"><div class="cb"><div class="ox">
+      <table><thead><tr><th>Semana</th><th>Trades</th><th>P&amp;L</th><th>% cuenta</th><th>WR</th></tr></thead>
+      <tbody id="bx-weekly-body"></tbody>
+      </table>
+    </div></div></div>
+    <div class="card" style="margin-top:1rem;"><div class="cwrap" style="height:240px;"><canvas id="bx-weeklyChart">Sin datos</canvas></div></div>
+  </div>
+
+  <!-- MENSUAL -->
+  <div class="pane" id="bx-pane-monthly">
+    <div class="card"><div class="cb"><div class="ox">
+      <table><thead><tr><th>Mes</th><th>Trades</th><th>P&amp;L</th><th>% cuenta</th><th>WR</th></tr></thead>
+      <tbody id="bx-monthly-body"></tbody>
+      </table>
+    </div></div></div>
+    <div class="card" style="margin-top:1rem;"><div class="cwrap" style="height:240px;"><canvas id="bx-monthlyChart">Sin datos</canvas></div></div>
+  </div>
+
+  <!-- X ACTIVO -->
+  <div class="pane" id="bx-pane-bycoin">
+    <div class="card"><div class="cb"><div class="ox">
+      <table><thead><tr><th>Activo</th><th>Trades</th><th>P&amp;L</th><th>% total</th><th>WR</th><th>Mejor</th><th>Peor</th></tr></thead>
+      <tbody id="bx-coin-table"></tbody>
+      </table>
+    </div></div></div>
+  </div>
+
+  <!-- DIARIO X ACTIVO -->
+  <div class="pane" id="bx-pane-daily-asset">
+    <div class="card"><div class="cb">
+      <div class="ox">
+        <table style="min-width:600px;">
+          <thead id="bx-daily-asset-head"></thead>
+          <tbody id="bx-daily-asset-body"><tr><td class="empty">Sin datos.</td></tr></tbody>
+        </table>
+      </div>
+    </div></div>
+  </div>
+
+  <!-- CONFIG -->
+  <div class="pane" id="bx-pane-config">
+    <div class="card"><div class="cb">
+      <p style="font-size:15px;font-weight:600;margin-bottom:14px;">Capital &amp; Movimientos Bitunix</p>
+      <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px;">
+        <div class="field" style="margin:0;flex:1;min-width:110px;">
+          <label>Tipo</label>
+          <select id="bx-mov-tipo" style="font-size:13px;padding:7px 10px;border-radius:var(--r);border:.5px solid var(--bo2);background:var(--bg2);color:var(--text);outline:none;width:100%;">
+            <option value="deposit">Depósito</option>
+            <option value="withdraw">Retiro</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;flex:1;min-width:110px;">
+          <label>Importe (USDT)</label>
+          <input type="number" id="bx-mov-amount" placeholder="0.00" min="0" step="0.01">
+        </div>
+        <div class="field" style="margin:0;flex:1;min-width:120px;">
+          <label>Fecha</label>
+          <input type="date" id="bx-mov-date">
+        </div>
+        <div style="padding-bottom:1px;">
+          <button class="btn bp" onclick="bxAddMovimiento()"><i class="ti ti-plus"></i> Añadir</button>
+        </div>
+      </div>
+      <div class="ox">
+        <table>
+          <thead><tr><th>Fecha</th><th>Tipo</th><th>Importe</th><th>Capital acum.</th><th></th></tr></thead>
+          <tbody id="bx-mov-body"><tr><td colspan="5" class="empty">Sin movimientos.</td></tr></tbody>
+        </table>
+      </div>
+      <div style="margin-top:10px;padding:10px 12px;background:var(--bg2);border-radius:var(--r);display:flex;gap:20px;flex-wrap:wrap;">
+        <span style="font-size:12px;color:var(--text2);">Total depositado: <strong id="bx-cap-dep">—</strong></span>
+        <span style="font-size:12px;color:var(--text2);">Total retirado: <strong id="bx-cap-ret">—</strong></span>
+        <span style="font-size:12px;color:var(--text2);">Capital neto: <strong id="bx-cap-net">—</strong></span>
+      </div>
+    </div></div>
+  </div>
+</div>
+
 <script>
 let T=[],F=[],S={};
 let pI=null,dI=null,daI=null;
@@ -1890,6 +2349,339 @@ function atRenderMovimientos(){
 document.addEventListener('DOMContentLoaded',function(){
   const d=document.getElementById('at-mov-date');
   if(d) d.valueAsDate=new Date();
+});
+
+
+// ══════════════════════════════════════
+// BITUNIX
+// ══════════════════════════════════════
+let BX_T = [], BX_S = {}, BX_CHARTS = {};
+
+function bxGetCapital(){
+  try{const raw=localStorage.getItem('bx-movimientos');if(!raw)return 0;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||0;}catch(e){return 0;}
+}
+
+function bxLoadMovimientos(){
+  try{const raw=localStorage.getItem('bx-movimientos');return raw?JSON.parse(raw):[];}catch(e){return [];}
+}
+function bxSaveMovimientos(movs){localStorage.setItem('bx-movimientos',JSON.stringify(movs));}
+
+function bxAddMovimiento(){
+  const tipo=document.getElementById('bx-mov-tipo').value;
+  const amount=parseFloat(document.getElementById('bx-mov-amount').value);
+  const date=document.getElementById('bx-mov-date').value;
+  if(!amount||amount<=0||!date){alert('Rellena importe y fecha.');return;}
+  const movs=bxLoadMovimientos();
+  movs.push({id:Date.now(),tipo,amount,date});
+  bxSaveMovimientos(movs);
+  document.getElementById('bx-mov-amount').value='';
+  bxRenderMovimientos();
+  bxRenderStats();
+}
+
+function bxDeleteMovimiento(id){
+  bxSaveMovimientos(bxLoadMovimientos().filter(m=>m.id!==id));
+  bxRenderMovimientos();
+  bxRenderStats();
+}
+
+function bxRenderMovimientos(){
+  const movs=bxLoadMovimientos().sort((a,b)=>a.date.localeCompare(b.date));
+  const body=document.getElementById('bx-mov-body');
+  if(!body)return;
+  let cum=0,totalDep=0,totalRet=0;
+  body.innerHTML=movs.map(m=>{
+    if(m.tipo==='deposit'){cum+=m.amount;totalDep+=m.amount;}
+    else{cum-=m.amount;totalRet+=m.amount;}
+    const tc=m.tipo==='deposit'?'pos':'neg';
+    return '<tr>'
+      +'<td>'+m.date+'</td>'
+      +'<td><span class="'+tc+'" style="font-weight:600;">'+(m.tipo==='deposit'?'Depósito':'Retiro')+'</span></td>'
+      +'<td><span class="'+tc+'">'+(m.tipo==='deposit'?'+':'-')+m.amount.toFixed(2)+' USDT</span></td>'
+      +'<td>'+cum.toFixed(2)+' USDT</td>'
+      +'<td><button class="btn bg" style="padding:2px 8px;font-size:11px;" onclick="bxDeleteMovimiento('+m.id+')">✕</button></td>'
+      +'</tr>';
+  }).join('')||'<tr><td colspan="5" class="empty">Sin movimientos.</td></tr>';
+  const elD=document.getElementById('bx-cap-dep');
+  const elR=document.getElementById('bx-cap-ret');
+  const elN=document.getElementById('bx-cap-net');
+  if(elD)elD.textContent=totalDep.toFixed(2)+' USDT';
+  if(elR)elR.textContent=totalRet.toFixed(2)+' USDT';
+  if(elN)elN.textContent=(totalDep-totalRet).toFixed(2)+' USDT';
+}
+
+async function bxFetchData(){
+  const u=getUrl();if(!u)return;
+  try{
+    const [sr,tr]=await Promise.all([fetch(u+'/bx/summary'),fetch(u+'/bx/trades?limit=20000')]);
+    if(sr.ok) BX_S=await sr.json();
+    if(tr.ok) BX_T=(await tr.json()).trades||[];
+    bxRenderStats();
+    bxShowPane(document.querySelector('#section-bitunix .pane.on')?.id?.replace('bx-pane-','')||'history');
+  }catch(e){console.error('Bitunix fetch error:',e);}
+}
+
+function bxRenderStats(){
+  const S=BX_S;
+  const cap=bxGetCapital();
+  const totalPnl=S.total_pnl||0;
+  const totalAcc=cap+totalPnl;
+  const rentPct=cap>0?(totalPnl/cap)*100:0;
+
+  function sv(id,val){const e=document.getElementById(id);if(e){e.textContent=(val>=0?'+':'')+val.toFixed(2)+' U';e.className='sval '+(val>0?'pos':val<0?'neg':'neu');}}
+  sv('bx-sp',totalPnl);
+  sv('bx-sd',S.today_pnl||0);
+  sv('bx-s7',S.p7||0);
+  sv('bx-s30',S.p30||0);
+  const swEl=document.getElementById('bx-sw');
+  if(swEl){swEl.textContent='$'+totalAcc.toFixed(2);swEl.className='sval '+(totalAcc>cap?'pos':totalAcc<cap?'neg':'neu');}
+  const sgEl=document.getElementById('bx-sg');
+  if(sgEl){sgEl.textContent=(rentPct>=0?'+':'')+rentPct.toFixed(2)+'%';sgEl.className='sval '+(rentPct>0?'pos':rentPct<0?'neg':'neu');}
+  const sgsEl=document.getElementById('bx-sgs');
+  if(sgsEl)sgsEl.textContent='sobre '+cap.toFixed(0)+' USDT invertidos';
+  const swrEl=document.getElementById('bx-swr');
+  if(swrEl){swrEl.textContent=(S.win_rate||0)+'%';swrEl.className='sval '+((S.win_rate||0)>=50?'pos':'neg');}
+  const swrsEl=document.getElementById('bx-swrs');
+  if(swrsEl)swrsEl.textContent=(S.wins||0)+' ganad. / '+(S.losses||0)+' perd.';
+  const scEl=document.getElementById('bx-sc');
+  if(scEl){scEl.textContent=(S.closed_trades||0);scEl.className='sval neu';}
+}
+
+function bxShowPane(t){
+  document.querySelectorAll('#section-bitunix .pane').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('#section-bitunix .tab').forEach(b=>b.classList.remove('active'));
+  const pane=document.getElementById('bx-pane-'+t);
+  const tab=document.getElementById('bx-tab-'+t);
+  if(pane)pane.classList.add('on');
+  if(tab)tab.classList.add('active');
+  if(t==='history')bxRenderTable();
+  else if(t==='daily')bxRenderDaily();
+  else if(t==='weekly')bxRenderWeekly();
+  else if(t==='monthly')bxRenderMonthly();
+  else if(t==='bycoin')bxRenderByCoin();
+  else if(t==='daily-asset')bxRenderDailyAsset();
+  else if(t==='config'){bxRenderMovimientos();}
+}
+
+function bxRenderTable(){
+  const closes=BX_T.filter(t=>t.tradeType==='close');
+  const body=document.getElementById('bx-tbody');
+  if(!closes.length){body.innerHTML='<tr><td colspan="7" class="empty">'+(BX_S.initial_load_done===false?'Cargando...':'Sin datos.')+'</td></tr>';return;}
+  body.innerHTML=closes.slice(0,500).map(t=>{
+    const pc=t.pnl>0?'pos':t.pnl<0?'neg':'neu';
+    const date=new Date(t.ts).toLocaleString('es-ES',{timeZone:'Europe/Madrid',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    return '<tr>'
+      +'<td style="white-space:nowrap;font-size:12px;">'+date+'</td>'
+      +'<td><strong>'+t.symbol+'</strong></td>'
+      +'<td><span class="badge '+(t.side==='long'?'blong':'bshort')+'">'+t.side.toUpperCase()+'</span></td>'
+      +'<td>$'+Number(t.price).toFixed(4)+'</td>'
+      +'<td>'+t.size+'</td>'
+      +'<td><span class="'+pc+'">'+(t.pnl>=0?'+':'')+Number(t.pnl).toFixed(4)+' U</span></td>'
+      +'<td>'+Number(t.fee).toFixed(4)+'</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function bxRenderDaily(){
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const map={};
+  closes.forEach(t=>{
+    const day=new Date(t.ts).toISOString().slice(0,10);
+    if(!map[day])map[day]={pnl:0,count:0,wins:0};
+    map[day].pnl+=t.pnl; map[day].count++;
+    if(t.pnl>0)map[day].wins++;
+  });
+  const days=Object.keys(map).sort((a,b)=>b.localeCompare(a));
+  const cap=bxGetCapital();
+  const sortedAsc=[...days].sort((a,b)=>a.localeCompare(b));
+  let runPnl=0; const balMap={};
+  sortedAsc.forEach(d=>{balMap[d]=cap+runPnl;runPnl+=map[d].pnl;});
+  const grandTotal=closes.reduce((a,t)=>a+t.pnl,0);
+  let cum=grandTotal;
+  const body=document.getElementById('bx-daily-body');
+  if(!days.length){body.innerHTML='<tr><td colspan="6" class="empty">Sin datos.</td></tr>';return;}
+  body.innerHTML=days.map(d=>{
+    const m=map[d];
+    const pc=m.pnl>0?'pos':m.pnl<0?'neg':'neu';
+    const wr=m.count?Math.round(m.wins/m.count*100):0;
+    const bal=balMap[d]||cap||1;
+    const pctDay=bal>0?(m.pnl/bal)*100:0;
+    const cumVal=cum; cum-=m.pnl;
+    return '<tr>'
+      +'<td style="white-space:nowrap;font-weight:500;">'+d+'</td>'
+      +'<td>'+m.count+'</td>'
+      +'<td><span class="'+pc+'">'+(m.pnl>=0?'+':'')+m.pnl.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+pc+'">'+(pctDay>=0?'+':'')+pctDay.toFixed(2)+'%</span></td>'
+      +'<td><span class="'+(cumVal>=0?'pos':'neg')+'">'+(cumVal>=0?'+':'')+cumVal.toFixed(2)+' U</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+  // Chart
+  const last30=sortedAsc.slice(-30);
+  if(BX_CHARTS.daily)BX_CHARTS.daily.destroy();
+  BX_CHARTS.daily=new Chart(document.getElementById('bx-dailyChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:last30.map(d=>d.slice(5)),datasets:[{label:'P&L',data:last30.map(d=>(map[d]?.pnl||0).toFixed(4)),backgroundColor:last30.map(d=>(map[d]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:10}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{autoSkip:true,maxTicksLimit:15,font:{size:10}},grid:{display:false}}}}
+  });
+}
+
+function bxRenderWeekly(){
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const map={};
+  closes.forEach(t=>{
+    const day=new Date(t.ts).toISOString().slice(0,10);
+    const k=getWeekKey(day);
+    if(!map[k])map[k]={pnl:0,count:0,wins:0};
+    map[k].pnl+=t.pnl; map[k].count++;
+    if(t.pnl>0)map[k].wins++;
+  });
+  const weeks=Object.keys(map).sort((a,b)=>b.localeCompare(a));
+  const cap=bxGetCapital();
+  const sortedAsc=[...weeks].sort((a,b)=>a.localeCompare(b));
+  let runPnl=0; const balMap={};
+  sortedAsc.forEach(w=>{balMap[w]=cap+runPnl;runPnl+=map[w].pnl;});
+  const body=document.getElementById('bx-weekly-body');
+  if(!weeks.length){body.innerHTML='<tr><td colspan="5" class="empty">Sin datos.</td></tr>';return;}
+  body.innerHTML=weeks.map(w=>{
+    const m=map[w];
+    const pc=m.pnl>0?'pos':m.pnl<0?'neg':'neu';
+    const wr=m.count?Math.round(m.wins/m.count*100):0;
+    const bal=balMap[w]||cap||1;
+    const pct=bal>0?(m.pnl/bal)*100:0;
+    return '<tr>'
+      +'<td style="font-weight:600;">'+w+'<br><small style="color:var(--text3);font-weight:400;">'+getWeekRange(w)+'</small></td>'
+      +'<td>'+m.count+'</td>'
+      +'<td><span class="'+pc+'">'+(m.pnl>=0?'+':'')+m.pnl.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+  const last12=sortedAsc.slice(-12);
+  if(BX_CHARTS.weekly)BX_CHARTS.weekly.destroy();
+  BX_CHARTS.weekly=new Chart(document.getElementById('bx-weeklyChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:last12.map(w=>w.slice(5)),datasets:[{label:'P&L',data:last12.map(w=>(map[w]?.pnl||0).toFixed(2)),backgroundColor:last12.map(w=>(map[w]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
+  });
+}
+
+function bxRenderMonthly(){
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const map={};
+  closes.forEach(t=>{
+    const k=new Date(t.ts).toISOString().slice(0,7);
+    if(!map[k])map[k]={pnl:0,count:0,wins:0};
+    map[k].pnl+=t.pnl; map[k].count++;
+    if(t.pnl>0)map[k].wins++;
+  });
+  const months=Object.keys(map).sort((a,b)=>b.localeCompare(a));
+  const cap=bxGetCapital();
+  const sortedAsc=[...months].sort((a,b)=>a.localeCompare(b));
+  let runPnl=0; const balMap={};
+  sortedAsc.forEach(m=>{balMap[m]=cap+runPnl;runPnl+=map[m].pnl;});
+  const body=document.getElementById('bx-monthly-body');
+  if(!months.length){body.innerHTML='<tr><td colspan="5" class="empty">Sin datos.</td></tr>';return;}
+  body.innerHTML=months.map(mo=>{
+    const m=map[mo];
+    const pc=m.pnl>0?'pos':m.pnl<0?'neg':'neu';
+    const wr=m.count?Math.round(m.wins/m.count*100):0;
+    const bal=balMap[mo]||cap||1;
+    const pct=bal>0?(m.pnl/bal)*100:0;
+    return '<tr>'
+      +'<td style="font-weight:600;">'+mo+'</td>'
+      +'<td>'+m.count+'</td>'
+      +'<td><span class="'+pc+'">'+(m.pnl>=0?'+':'')+m.pnl.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+  const last12=sortedAsc.slice(-12);
+  if(BX_CHARTS.monthly)BX_CHARTS.monthly.destroy();
+  BX_CHARTS.monthly=new Chart(document.getElementById('bx-monthlyChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:last12,datasets:[{label:'P&L',data:last12.map(m=>(map[m]?.pnl||0).toFixed(2)),backgroundColor:last12.map(m=>(map[m]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
+  });
+}
+
+function bxRenderByCoin(){
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const map={};
+  closes.forEach(t=>{
+    if(!map[t.symbol])map[t.symbol]={pnl:0,count:0,wins:0,best:null,worst:null};
+    const m=map[t.symbol];
+    m.pnl+=t.pnl; m.count++;
+    if(t.pnl>0)m.wins++;
+    if(m.best===null||t.pnl>m.best)m.best=t.pnl;
+    if(m.worst===null||t.pnl<m.worst)m.worst=t.pnl;
+  });
+  const sorted=Object.entries(map).map(([s,m])=>({symbol:s,...m})).sort((a,b)=>b.pnl-a.pnl);
+  const totalPnl=sorted.reduce((a,x)=>a+x.pnl,0);
+  document.getElementById('bx-coin-table').innerHTML=sorted.map(x=>{
+    const pc=x.pnl>0?'pos':x.pnl<0?'neg':'neu';
+    const wr=x.count?Math.round(x.wins/x.count*100):0;
+    const pct=totalPnl?((x.pnl/Math.abs(totalPnl))*100):0;
+    return '<tr>'
+      +'<td><strong>'+x.symbol+'</strong></td>'
+      +'<td>'+x.count+'</td>'
+      +'<td><span class="'+pc+'">'+(x.pnl>=0?'+':'')+x.pnl.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'<td><span class="pos">+'+(x.best||0).toFixed(2)+'</span></td>'
+      +'<td><span class="neg">'+(x.worst||0).toFixed(2)+'</span></td>'
+      +'</tr>';
+  }).join('');
+}
+
+function bxRenderDailyAsset(){
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const map={}, days=[], symbols=[];
+  closes.forEach(t=>{
+    const day=new Date(t.ts).toISOString().slice(0,10);
+    if(!map[day])map[day]={};
+    map[day][t.symbol]=(map[day][t.symbol]||0)+t.pnl;
+    if(!days.includes(day))days.push(day);
+    if(!symbols.includes(t.symbol))symbols.push(t.symbol);
+  });
+  days.sort((a,b)=>b.localeCompare(a)); symbols.sort();
+  document.getElementById('bx-daily-asset-head').innerHTML=
+    '<tr><th style="white-space:nowrap;">Fecha</th>'+symbols.map(s=>'<th>'+s+'</th>').join('')+'<th>Total</th></tr>';
+  document.getElementById('bx-daily-asset-body').innerHTML=days.map(day=>{
+    let total=0;
+    const cells=symbols.map(sym=>{
+      const val=map[day][sym];
+      if(val===undefined)return '<td style="color:var(--text3);">—</td>';
+      total+=val;
+      const pc=val>0?'pos':val<0?'neg':'neu';
+      return '<td><span class="'+pc+'">'+(val>=0?'+':'')+val.toFixed(2)+'</span></td>';
+    });
+    const tc=total>0?'pos':total<0?'neg':'neu';
+    return '<tr><td style="white-space:nowrap;font-weight:500;">'+day+'</td>'+cells.join('')+'<td style="font-weight:600;"><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(2)+'</span></td></tr>';
+  }).join('');
+}
+
+// Update switchExchange to handle bitunix
+const _origSwitch = switchExchange;
+switchExchange = function(ex){
+  document.getElementById('section-lighter').style.display='none';
+  document.getElementById('section-aster').style.display='none';
+  document.getElementById('section-bitunix').style.display='none';
+  document.getElementById('exch-lighter').classList.remove('active');
+  document.getElementById('exch-aster').classList.remove('active');
+  document.getElementById('exch-bitunix').classList.remove('active');
+  document.getElementById('section-'+ex).style.display='';
+  document.getElementById('exch-'+ex).classList.add('active');
+  document.getElementById('hdr-title').textContent=ex==='lighter'?'Lighter Tracker':ex==='aster'?'Aster Tracker':'Bitunix Tracker';
+  currentExchange=ex;
+  if(ex==='lighter'){updateHeader();renderAll();}
+  else if(ex==='aster'){atLoadStored();atRenderMovimientos();atShowPane('daily');}
+  else if(ex==='bitunix'){bxFetchData();bxRenderMovimientos();}
+};
+
+document.addEventListener('DOMContentLoaded',function(){
+  const d=document.getElementById('bx-mov-date');
+  if(d)d.valueAsDate=new Date();
 });
 
 </script>
