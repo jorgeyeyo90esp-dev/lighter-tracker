@@ -554,26 +554,38 @@ function bxRenderStats(){
   const S=BX_S;
   const cap=bxGetCapital();
   const totalPnl=S.total_pnl||0;
+  const totalFee=BX_T.reduce((a,t)=>a+Math.abs(t.fee||0),0);
   const totalAcc=cap+totalPnl;
   const rentPct=cap>0?(totalPnl/cap)*100:0;
 
-  function sv(id,val){const e=document.getElementById(id);if(e){e.textContent=(val>=0?'+':'')+val.toFixed(2)+' U';e.className='sval '+(val>0?'pos':val<0?'neg':'neu');}}
-  sv('bx-sp',totalPnl);
-  sv('bx-sd',S.today_pnl||0);
-  sv('bx-s7',S.p7||0);
-  sv('bx-s30',S.p30||0);
+  function setPnl(id,sub,val,subTxt){
+    const e=document.getElementById(id);const es=document.getElementById(sub);
+    if(e){e.textContent=(val>=0?'+':'')+val.toFixed(2)+' U';e.className='sval '+(val>0?'pos':val<0?'neg':'neu');}
+    if(es&&subTxt)es.textContent=subTxt;
+  }
+  setPnl('bx-sp','bx-sps',totalPnl,'fees: -'+totalFee.toFixed(2)+' U');
+  setPnl('bx-sd','bx-sds',S.today_pnl||0,(S.closed_trades||0)+' trades cerrados hoy');
+  const sfEl=document.getElementById('bx-sf');
+  if(sfEl){sfEl.textContent='-'+totalFee.toFixed(4)+' U';sfEl.className='sval neg';}
   const swEl=document.getElementById('bx-sw');
   if(swEl){swEl.textContent='$'+totalAcc.toFixed(2);swEl.className='sval '+(totalAcc>cap?'pos':totalAcc<cap?'neg':'neu');}
+  const swsEl=document.getElementById('bx-sws');
+  if(swsEl)swsEl.textContent=(totalPnl>=0?'+':'')+totalPnl.toFixed(2)+' USDT P&L';
   const sgEl=document.getElementById('bx-sg');
   if(sgEl){sgEl.textContent=(rentPct>=0?'+':'')+rentPct.toFixed(2)+'%';sgEl.className='sval '+(rentPct>0?'pos':rentPct<0?'neg':'neu');}
   const sgsEl=document.getElementById('bx-sgs');
   if(sgsEl)sgsEl.textContent='sobre '+cap.toFixed(0)+' USDT invertidos';
-  const swrEl=document.getElementById('bx-swr');
-  if(swrEl){swrEl.textContent=(S.win_rate||0)+'%';swrEl.className='sval '+((S.win_rate||0)>=50?'pos':'neg');}
-  const swrsEl=document.getElementById('bx-swrs');
-  if(swrsEl)swrsEl.textContent=(S.wins||0)+' ganad. / '+(S.losses||0)+' perd.';
-  const scEl=document.getElementById('bx-sc');
-  if(scEl){scEl.textContent=(S.closed_trades||0);scEl.className='sval neu';}
+  setPnl('bx-s7','bx-s7s',S.p7||0,'últimos 7 días');
+  setPnl('bx-s30','bx-s30s',S.p30||0,'últimos 30 días');
+  // Best day
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null);
+  const dayMap={};
+  closes.forEach(t=>{const d=new Date(t.ts).toISOString().slice(0,10);dayMap[d]=(dayMap[d]||0)+t.pnl;});
+  const bestDay=Object.entries(dayMap).sort((a,b)=>b[1]-a[1])[0];
+  const sbdEl=document.getElementById('bx-sbd');
+  const sbdsEl=document.getElementById('bx-sbds');
+  if(sbdEl&&bestDay){sbdEl.textContent='+'+(bestDay[1]).toFixed(2)+' U';sbdEl.className='sval pos';}
+  if(sbdsEl&&bestDay)sbdsEl.textContent=bestDay[0];
 }
 
 function bxShowPane(t){
@@ -584,12 +596,52 @@ function bxShowPane(t){
   if(pane)pane.classList.add('on');
   if(tab)tab.classList.add('active');
   if(t==='history')bxRenderTable();
-  else if(t==='daily')bxRenderDaily();
-  else if(t==='weekly')bxRenderWeekly();
-  else if(t==='monthly')bxRenderMonthly();
+  else if(t==='positions')bxRenderPositions();
   else if(t==='bycoin')bxRenderByCoin();
+  else if(t==='daily')bxRenderDaily();
+  else if(t==='chart')bxRenderChart();
+  else if(t==='monthly')bxRenderMonthly();
+  else if(t==='weekly')bxRenderWeekly();
   else if(t==='daily-asset')bxRenderDailyAsset();
   else if(t==='config'){bxRenderMovimientos();}
+}
+
+function bxRenderPositions(){
+  const body=document.getElementById('bx-pos-tbody');
+  if(!body)return;
+  const opens=BX_T.filter(t=>t.tradeType==='open');
+  if(!opens.length){body.innerHTML='<tr><td colspan="6" class="empty">Sin posiciones abiertas.</td></tr>';return;}
+  body.innerHTML=opens.map(t=>{
+    const sc=t.side==='long'?'pos':'neg';
+    return '<tr>'
+      +'<td><strong>'+t.symbol+'</strong></td>'
+      +'<td><span class="badge b'+t.side+'">'+t.side.toUpperCase()+'</span></td>'
+      +'<td>'+t.size+'</td>'
+      +'<td>$'+Number(t.price).toFixed(4)+'</td>'
+      +'<td>&#8212;</td>'
+      +'<td>&#8212;</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function bxRenderChart(){
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  if(!closes.length)return;
+  const sorted=[...closes].sort((a,b)=>a.ts-b.ts);
+  let cum=0;
+  const data=sorted.map(t=>{cum+=t.pnl;return{x:new Date(t.ts).toISOString().slice(0,10),y:parseFloat(cum.toFixed(4))};});
+  if(BX_CHARTS.pnl)BX_CHARTS.pnl.destroy();
+  BX_CHARTS.pnl=new Chart(document.getElementById('bx-pnlChart').getContext('2d'),{
+    type:'line',
+    data:{datasets:[{label:'P&L acumulado',data,borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.1)',borderWidth:2,pointRadius:0,fill:true,tension:0.3}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{type:'category',ticks:{autoSkip:true,maxTicksLimit:12,font:{size:10}},grid:{display:false}},
+        y:{ticks:{callback:v=>(v>=0?'+':'')+v.toFixed(0),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}}
+      }
+    }
+  });
 }
 
 function bxRenderTable(){
@@ -1238,24 +1290,26 @@ tbody tr:hover td{background:var(--bg2);}
 <!-- BITUNIX SECTION -->
 <div id="section-bitunix" style="display:none;">
   <div class="stats">
-    <div class="stat"><div class="slbl">P&L Total</div><div class="sval neu" id="bx-sp">&#8212;</div><div class="ssub">trades realizados</div></div>
-    <div class="stat"><div class="slbl">P&L Hoy</div><div class="sval neu" id="bx-sd">&#8212;</div><div class="ssub" id="bx-sds">&#8212;</div></div>
-    <div class="stat"><div class="slbl">P&L 7 días</div><div class="sval neu" id="bx-s7">&#8212;</div><div class="ssub">&#8212;</div></div>
-    <div class="stat"><div class="slbl">Total cuenta</div><div class="sval neu" id="bx-sw">&#8212;</div><div class="ssub">depósitos + P&L</div></div>
+    <div class="stat"><div class="slbl">P&amp;L Total</div><div class="sval neu" id="bx-sp">&#8212;</div><div class="ssub" id="bx-sps">trades realizados</div></div>
+    <div class="stat"><div class="slbl">P&amp;L Hoy</div><div class="sval neu" id="bx-sd">&#8212;</div><div class="ssub" id="bx-sds">&#8212;</div></div>
+    <div class="stat"><div class="slbl">Fee total</div><div class="sval neu" id="bx-sf">&#8212;</div><div class="ssub">fees acumulados</div></div>
+    <div class="stat"><div class="slbl">Total cuenta</div><div class="sval neu" id="bx-sw">&#8212;</div><div class="ssub" id="bx-sws">depósitos + P&L</div></div>
   </div>
   <div class="stats" style="margin-top:-2px;">
     <div class="stat"><div class="slbl">% Rentabilidad</div><div class="sval neu" id="bx-sg">&#8212;</div><div class="ssub" id="bx-sgs">sobre capital invertido</div></div>
-    <div class="stat"><div class="slbl">P&L 30 días</div><div class="sval neu" id="bx-s30">&#8212;</div><div class="ssub">&#8212;</div></div>
-    <div class="stat"><div class="slbl">Win Rate</div><div class="sval neu" id="bx-swr">&#8212;</div><div class="ssub" id="bx-swrs">&#8212;</div></div>
-    <div class="stat"><div class="slbl">Trades cerrados</div><div class="sval neu" id="bx-sc">&#8212;</div><div class="ssub">&#8212;</div></div>
+    <div class="stat"><div class="slbl">P&amp;L 7 dias</div><div class="sval neu" id="bx-s7">&#8212;</div><div class="ssub" id="bx-s7s">&#8212;</div></div>
+    <div class="stat"><div class="slbl">P&amp;L 30 dias</div><div class="sval neu" id="bx-s30">&#8212;</div><div class="ssub" id="bx-s30s">&#8212;</div></div>
+    <div class="stat"><div class="slbl">Mejor dia</div><div class="sval pos" id="bx-sbd">&#8212;</div><div class="ssub" id="bx-sbds">&#8212;</div></div>
   </div>
 
   <div class="tabs">
     <button class="tab active" id="bx-tab-history" onclick="bxShowPane('history')"><i class="ti ti-list"></i> Historial</button>
+    <button class="tab" id="bx-tab-positions" onclick="bxShowPane('positions')"><i class="ti ti-chart-area"></i> Posiciones</button>
+    <button class="tab" id="bx-tab-bycoin" onclick="bxShowPane('bycoin')"><i class="ti ti-coin"></i> X Moneda</button>
     <button class="tab" id="bx-tab-daily" onclick="bxShowPane('daily')"><i class="ti ti-calendar"></i> Diario</button>
-    <button class="tab" id="bx-tab-weekly" onclick="bxShowPane('weekly')"><i class="ti ti-calendar-week"></i> Semanal</button>
+    <button class="tab" id="bx-tab-chart" onclick="bxShowPane('chart')"><i class="ti ti-chart-line"></i> Grafica</button>
     <button class="tab" id="bx-tab-monthly" onclick="bxShowPane('monthly')"><i class="ti ti-calendar-month"></i> Mensual</button>
-    <button class="tab" id="bx-tab-bycoin" onclick="bxShowPane('bycoin')"><i class="ti ti-coin"></i> X Activo</button>
+    <button class="tab" id="bx-tab-weekly" onclick="bxShowPane('weekly')"><i class="ti ti-calendar-week"></i> Semanal</button>
     <button class="tab" id="bx-tab-daily-asset" onclick="bxShowPane('daily-asset')"><i class="ti ti-table"></i> Diario x Activo</button>
     <button class="tab" id="bx-tab-config" onclick="bxShowPane('config')"><i class="ti ti-settings"></i> Config</button>
   </div>
@@ -1267,6 +1321,20 @@ tbody tr:hover td{background:var(--bg2);}
       <tbody id="bx-tbody"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
       </table>
     </div></div></div>
+  </div>
+
+  <!-- POSICIONES -->
+  <div class="pane" id="bx-pane-positions">
+    <div class="card"><div class="cb"><div class="ox">
+      <table><thead><tr><th>Mercado</th><th>Lado</th><th>Tamaño</th><th>Precio entrada</th><th>P&amp;L no realizado</th><th>Margen</th></tr></thead>
+      <tbody id="bx-pos-tbody"><tr><td colspan="6" class="empty">Sin posiciones abiertas.</td></tr></tbody>
+      </table>
+    </div></div></div>
+  </div>
+
+  <!-- GRAFICA -->
+  <div class="pane" id="bx-pane-chart">
+    <div class="card"><div class="cwrap" style="height:300px;"><canvas id="bx-pnlChart">Sin datos</canvas></div></div>
   </div>
 
   <!-- DIARIO -->
@@ -2425,26 +2493,38 @@ function bxRenderStats(){
   const S=BX_S;
   const cap=bxGetCapital();
   const totalPnl=S.total_pnl||0;
+  const totalFee=BX_T.reduce((a,t)=>a+Math.abs(t.fee||0),0);
   const totalAcc=cap+totalPnl;
   const rentPct=cap>0?(totalPnl/cap)*100:0;
 
-  function sv(id,val){const e=document.getElementById(id);if(e){e.textContent=(val>=0?'+':'')+val.toFixed(2)+' U';e.className='sval '+(val>0?'pos':val<0?'neg':'neu');}}
-  sv('bx-sp',totalPnl);
-  sv('bx-sd',S.today_pnl||0);
-  sv('bx-s7',S.p7||0);
-  sv('bx-s30',S.p30||0);
+  function setPnl(id,sub,val,subTxt){
+    const e=document.getElementById(id);const es=document.getElementById(sub);
+    if(e){e.textContent=(val>=0?'+':'')+val.toFixed(2)+' U';e.className='sval '+(val>0?'pos':val<0?'neg':'neu');}
+    if(es&&subTxt)es.textContent=subTxt;
+  }
+  setPnl('bx-sp','bx-sps',totalPnl,'fees: -'+totalFee.toFixed(2)+' U');
+  setPnl('bx-sd','bx-sds',S.today_pnl||0,(S.closed_trades||0)+' trades cerrados hoy');
+  const sfEl=document.getElementById('bx-sf');
+  if(sfEl){sfEl.textContent='-'+totalFee.toFixed(4)+' U';sfEl.className='sval neg';}
   const swEl=document.getElementById('bx-sw');
   if(swEl){swEl.textContent='$'+totalAcc.toFixed(2);swEl.className='sval '+(totalAcc>cap?'pos':totalAcc<cap?'neg':'neu');}
+  const swsEl=document.getElementById('bx-sws');
+  if(swsEl)swsEl.textContent=(totalPnl>=0?'+':'')+totalPnl.toFixed(2)+' USDT P&L';
   const sgEl=document.getElementById('bx-sg');
   if(sgEl){sgEl.textContent=(rentPct>=0?'+':'')+rentPct.toFixed(2)+'%';sgEl.className='sval '+(rentPct>0?'pos':rentPct<0?'neg':'neu');}
   const sgsEl=document.getElementById('bx-sgs');
   if(sgsEl)sgsEl.textContent='sobre '+cap.toFixed(0)+' USDT invertidos';
-  const swrEl=document.getElementById('bx-swr');
-  if(swrEl){swrEl.textContent=(S.win_rate||0)+'%';swrEl.className='sval '+((S.win_rate||0)>=50?'pos':'neg');}
-  const swrsEl=document.getElementById('bx-swrs');
-  if(swrsEl)swrsEl.textContent=(S.wins||0)+' ganad. / '+(S.losses||0)+' perd.';
-  const scEl=document.getElementById('bx-sc');
-  if(scEl){scEl.textContent=(S.closed_trades||0);scEl.className='sval neu';}
+  setPnl('bx-s7','bx-s7s',S.p7||0,'últimos 7 días');
+  setPnl('bx-s30','bx-s30s',S.p30||0,'últimos 30 días');
+  // Best day
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null);
+  const dayMap={};
+  closes.forEach(t=>{const d=new Date(t.ts).toISOString().slice(0,10);dayMap[d]=(dayMap[d]||0)+t.pnl;});
+  const bestDay=Object.entries(dayMap).sort((a,b)=>b[1]-a[1])[0];
+  const sbdEl=document.getElementById('bx-sbd');
+  const sbdsEl=document.getElementById('bx-sbds');
+  if(sbdEl&&bestDay){sbdEl.textContent='+'+(bestDay[1]).toFixed(2)+' U';sbdEl.className='sval pos';}
+  if(sbdsEl&&bestDay)sbdsEl.textContent=bestDay[0];
 }
 
 function bxShowPane(t){
@@ -2455,12 +2535,52 @@ function bxShowPane(t){
   if(pane)pane.classList.add('on');
   if(tab)tab.classList.add('active');
   if(t==='history')bxRenderTable();
-  else if(t==='daily')bxRenderDaily();
-  else if(t==='weekly')bxRenderWeekly();
-  else if(t==='monthly')bxRenderMonthly();
+  else if(t==='positions')bxRenderPositions();
   else if(t==='bycoin')bxRenderByCoin();
+  else if(t==='daily')bxRenderDaily();
+  else if(t==='chart')bxRenderChart();
+  else if(t==='monthly')bxRenderMonthly();
+  else if(t==='weekly')bxRenderWeekly();
   else if(t==='daily-asset')bxRenderDailyAsset();
   else if(t==='config'){bxRenderMovimientos();}
+}
+
+function bxRenderPositions(){
+  const body=document.getElementById('bx-pos-tbody');
+  if(!body)return;
+  const opens=BX_T.filter(t=>t.tradeType==='open');
+  if(!opens.length){body.innerHTML='<tr><td colspan="6" class="empty">Sin posiciones abiertas.</td></tr>';return;}
+  body.innerHTML=opens.map(t=>{
+    const sc=t.side==='long'?'pos':'neg';
+    return '<tr>'
+      +'<td><strong>'+t.symbol+'</strong></td>'
+      +'<td><span class="badge b'+t.side+'">'+t.side.toUpperCase()+'</span></td>'
+      +'<td>'+t.size+'</td>'
+      +'<td>$'+Number(t.price).toFixed(4)+'</td>'
+      +'<td>&#8212;</td>'
+      +'<td>&#8212;</td>'
+      +'</tr>';
+  }).join('');
+}
+
+function bxRenderChart(){
+  const closes=BX_T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  if(!closes.length)return;
+  const sorted=[...closes].sort((a,b)=>a.ts-b.ts);
+  let cum=0;
+  const data=sorted.map(t=>{cum+=t.pnl;return{x:new Date(t.ts).toISOString().slice(0,10),y:parseFloat(cum.toFixed(4))};});
+  if(BX_CHARTS.pnl)BX_CHARTS.pnl.destroy();
+  BX_CHARTS.pnl=new Chart(document.getElementById('bx-pnlChart').getContext('2d'),{
+    type:'line',
+    data:{datasets:[{label:'P&L acumulado',data,borderColor:'#1D9E75',backgroundColor:'rgba(29,158,117,0.1)',borderWidth:2,pointRadius:0,fill:true,tension:0.3}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{type:'category',ticks:{autoSkip:true,maxTicksLimit:12,font:{size:10}},grid:{display:false}},
+        y:{ticks:{callback:v=>(v>=0?'+':'')+v.toFixed(0),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}}
+      }
+    }
+  });
 }
 
 function bxRenderTable(){
