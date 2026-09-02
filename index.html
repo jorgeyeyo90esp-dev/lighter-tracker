@@ -494,7 +494,8 @@ async function fetchAll(){
   const btn=document.querySelector('[onclick="fetchAll()"]');
   if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> Cargando...';}
   try{
-    const [sr,tr,fr]=await Promise.all([fetch(u+'/summary'),fetch(u+'/trades?limit=20000'),fetch(u+'/funding')]);
+    const sfx=currentAccount===2?'2':'';
+    const [sr,tr,fr]=await Promise.all([fetch(u+'/summary'+sfx),fetch(u+'/trades'+sfx+'?limit=20000'),fetch(u+'/funding'+sfx)]);
     if(!sr.ok)throw new Error('HTTP '+sr.status);
     S=await sr.json();
     T=(await tr.json()).trades||[];
