@@ -121,7 +121,7 @@ function getWeekRange(weekKey){
   return fmt(monday)+' → '+fmt(sunday);
 }
 function renderWeekly(){
-  const closes=(T_ALL.length?T_ALL:T).filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const closes=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
   const map={},fundMap={};
   closes.forEach(t=>{
     const day=pts(t.ts).toISOString().slice(0,10);
@@ -439,7 +439,7 @@ tbody tr:hover td{background:var(--bg2);}
 
 </div>
 <script>
-let T=[],T_ALL=[],F=[],S={};
+let T=[],F=[],S={};
 let pI=null,dI=null,daI=null;
 let iv=null;
 
@@ -470,20 +470,11 @@ async function fetchAll(){
   if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> Cargando...';}
   try{
     const _sfx=typeof currentAccount!=='undefined'&&currentAccount===2?'2':'';
-    // Load summary, today's trades (for historial), and funding in parallel
-    const [sr,tr_today,fr]=await Promise.all([
-      fetch(u+'/summary'+_sfx),
-      fetch(u+'/trades'+_sfx+'?today=true&limit=1000'),
-      fetch(u+'/funding'+_sfx)
-    ]);
+    const [sr,tr,fr]=await Promise.all([fetch(u+'/summary'+_sfx),fetch(u+'/trades'+_sfx+'?limit=20000'),fetch(u+'/funding'+_sfx)]);
     if(!sr.ok)throw new Error('HTTP '+sr.status);
     S=await sr.json();
-    T=(await tr_today.json()).trades||[];
+    T=(await tr.json()).trades||[];
     window.FUNDING_LIST=fr.ok?(await fr.json()).funding||[]:[];
-    // Load ALL trades in background for stats tabs
-    fetch(u+'/trades'+_sfx+'?limit=20000').then(r=>r.json()).then(d=>{
-      T_ALL=d.trades||[];
-    }).catch(()=>{});
     updateHeader();renderAll();
     document.getElementById('lu').textContent='Sync '+new Date().toLocaleTimeString('es-ES');
     document.getElementById('hdr-title').textContent=currentAccount===2?'Lighter Tracker 2':'Lighter Tracker';
@@ -680,7 +671,7 @@ function renderByCoin(){
 }
 
 function renderDailyAsset(){
-  const closes=(T_ALL.length?T_ALL:T).filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const closes=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
   if(!closes.length){
     document.getElementById('daily-asset-body').innerHTML='<tr><td class="empty">Sin datos.</td></tr>';
     return;
@@ -726,7 +717,7 @@ function renderDailyAsset(){
 }
 
 function renderMonthly(){
-  const closes=(T_ALL.length?T_ALL:T).filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const closes=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
   const map={};
   closes.forEach(t=>{
     const k=pts(t.ts).toISOString().slice(0,7);
@@ -796,7 +787,7 @@ function renderMonthly(){
 }
 
 function renderDaily(){
-  const closes=(T_ALL.length?T_ALL:T).filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const closes=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
   if(!closes.length){document.getElementById('daily-body').innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
   const map={};
   closes.forEach(t=>{
@@ -974,7 +965,7 @@ function switchAccount(n){
   if(currentAccount === n) return;
   currentAccount = n;
   // Clear all data immediately
-  S={}; T=[]; T_ALL=[]; window.FUNDING_LIST=[];
+  S={}; T=[]; window.FUNDING_LIST=[];
   // Show loading state
   document.getElementById('hdr-title').textContent = n===1 ? 'Lighter Tracker' : 'Lighter Tracker 2';
   document.getElementById('sub').textContent = 'Cargando cuenta '+n+'...';
