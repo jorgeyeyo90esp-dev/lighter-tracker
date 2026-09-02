@@ -530,7 +530,7 @@ function renderTable(){
   const f=filtered();
   const b=document.getElementById('tbody');
   if(!f.length){b.innerHTML='<tr><td colspan="7" class="empty"><i class="ti ti-chart-candle"></i>'+(T.length?'Sin resultados.':'Cargando...')+'</td></tr>';return;}
-  b.innerHTML=f.map(t=>{
+  b.innerHTML=f.slice(0,100).map(t=>{
     const pv=t.pnl;
     const hasP=t.tradeType==='close'&&pv!==null&&!isNaN(pv);
     const pc=pv>0?'pos':pv<0?'neg':'neu';
