@@ -29,8 +29,7 @@ function setTheme(t){
 
 
 // ── MOVIMIENTOS ──
-let currentAccount=1;
-function getMovKey(){return currentAccount===2?'lt-movimientos-2':'lt-movimientos';}
+// getMovKey() used instead
 const DEFAULT_MOVIMIENTOS=[
   {id:1,tipo:'deposit',amount:20,date:'2026-05-06'},
   {id:2,tipo:'deposit',amount:30,date:'2026-05-06'},
@@ -97,16 +96,9 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 
 
-function switchAccount(n){
-  currentAccount=n;
-  LT={};LT_T=[];window.FUNDING_LIST=[];
-  renderDashboard();ltRenderStats();ltRenderTable();
-  document.getElementById('exch-lt1').classList.toggle('active',n===1);
-  document.getElementById('exch-lt2').classList.toggle('active',n===2);
-  document.getElementById('logo-title').textContent=n===1?'Tracker':'Tracker 2';
-  document.getElementById('logo-sub').textContent='Cargando...';
-  fetchAll();
-}
+// ═══════════════════════════════════
+// MULTI-ACCOUNT & WEEKLY
+// ═══════════════════════════════════
 
 function getWeekKey(dateStr){
   const d=new Date(dateStr+'T00:00:00Z');
@@ -135,8 +127,7 @@ function renderWeekly(){
     const day=pts(t.ts).toISOString().slice(0,10);
     const k=getWeekKey(day);
     if(!map[k])map[k]={pnl:0,count:0,wins:0};
-    map[k].pnl+=t.pnl;map[k].count++;
-    if(t.pnl>0)map[k].wins++;
+    map[k].pnl+=t.pnl;map[k].count++;if(t.pnl>0)map[k].wins++;
   });
   (window.FUNDING_LIST||[]).forEach(f=>{
     if(!f.ts)return;
@@ -156,34 +147,18 @@ function renderWeekly(){
   if(!weeks.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
   body.innerHTML=weeks.map(w=>{
     const d=map[w]||{pnl:0,count:0,wins:0};
-    const fund=fundMap[w]||0;
-    const total=d.pnl+fund;
+    const fund=fundMap[w]||0;const total=d.pnl+fund;
     const pc=d.pnl>0?'pos':d.pnl<0?'neg':'neu';
     const tc=total>0?'pos':total<0?'neg':'neu';
     const fp=fund>0?'pos':fund<0?'neg':'neu';
     const wr=d.count?Math.round(d.wins/d.count*100):0;
     const bal=balMap[w]||INITIAL_CAPITAL;
     const pct=bal>0?(total/bal)*100:0;
-    return '<tr>'
-      +'<td style="font-weight:600;white-space:nowrap;">'+w+'<br><small style="color:var(--text3);font-weight:400;">'+getWeekRange(w)+'</small></td>'
-      +'<td>'+d.count+'</td>'
-      +'<td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(2)+' U</span></td>'
-      +'<td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td>'
-      +'<td><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(2)+' U</span></td>'
-      +'<td><span class="'+tc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td>'
-      +'<td>'+wr+'%</td>'
-      +'</tr>';
+    return '<tr><td style="font-weight:600;white-space:nowrap;">'+w+'<br><small style="color:var(--text3);">'+getWeekRange(w)+'</small></td><td>'+d.count+'</td><td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(2)+' U</span></td><td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td><td><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(2)+' U</span></td><td><span class="'+tc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td><td>'+wr+'%</td></tr>';
   }).join('');
   const last12=sortedAsc.slice(-12);
   if(window._weeklyChart)window._weeklyChart.destroy();
-  window._weeklyChart=new Chart(document.getElementById('weeklyChart').getContext('2d'),{
-    type:'bar',
-    data:{labels:last12.map(w=>w.slice(5)),datasets:[
-      {label:'Trades',data:last12.map(w=>(map[w]?.pnl||0).toFixed(2)),backgroundColor:last12.map(w=>(map[w]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:4},
-      {label:'Funding',data:last12.map(w=>(fundMap[w]||0).toFixed(4)),backgroundColor:'rgba(100,100,200,0.5)',borderRadius:4}
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'var(--text)',font:{size:11}}}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
-  });
+  window._weeklyChart=new Chart(document.getElementById('weeklyChart').getContext('2d'),{type:'bar',data:{labels:last12.map(w=>w.slice(5)),datasets:[{label:'Trades',data:last12.map(w=>(map[w]?.pnl||0).toFixed(2)),backgroundColor:last12.map(w=>(map[w]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:4},{label:'Funding',data:last12.map(w=>(fundMap[w]||0).toFixed(4)),backgroundColor:'rgba(100,100,200,0.5)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'var(--text)',font:{size:11}}}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}});
 }
 
 </script>
@@ -261,8 +236,8 @@ tbody tr:hover td{background:var(--bg2);}
 .tbtn-blue{background:linear-gradient(135deg,#0d1421,#38bdf8);}
 .tbtn-warm{background:#f2ebe0;box-shadow:0 0 0 1px rgba(120,80,40,.25);}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-.exch-btn{flex:1;padding:4px 6px;border:none;border-radius:var(--r);cursor:pointer;font-size:11px;font-weight:600;background:transparent;color:var(--text2);transition:all .15s;}
-.exch-btn.active{background:var(--bg3);color:var(--text);}
+.exch-btn{padding:4px 10px;border:none;border-radius:20px;cursor:pointer;font-size:12px;font-weight:600;background:transparent;color:var(--text3);transition:all .15s;}
+.exch-btn.active{background:var(--green);color:#fff;}
 </style>
 </head>
 <body>
@@ -279,11 +254,11 @@ tbody tr:hover td{background:var(--bg2);}
 <div class="hdr">
   <div class="logo">
     <div class="dot"></div>
-    <div><h1 id="logo-title">Lighter Tracker</h1><span class="sub" id="sub">Conectando...</span></div>
+    <div><h1 id="hdr-title">Lighter Tracker</h1><span class="sub" id="sub">Conectando...</span></div>
   </div>
-  <div style="display:flex;gap:4px;background:var(--bg2);border-radius:20px;padding:3px;">
-    <button class="exch-btn active" id="exch-lt1" onclick="switchAccount(1)">⚡ L1</button>
-    <button class="exch-btn" id="exch-lt2" onclick="switchAccount(2)">⚡ L2</button>
+  <div style="display:flex;gap:3px;align-items:center;background:var(--bg2);border-radius:20px;padding:3px;">
+    <button class="exch-btn active" id="exch-lt1" onclick="switchAccount(1)">⚡ Cuenta 1</button>
+    <button class="exch-btn" id="exch-lt2" onclick="switchAccount(2)">⚡ Cuenta 2</button>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
     <span style="font-size:11px;color:var(--text3);" id="lu"></span>
@@ -494,14 +469,15 @@ async function fetchAll(){
   const btn=document.querySelector('[onclick="fetchAll()"]');
   if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> Cargando...';}
   try{
-    const sfx=currentAccount===2?'2':'';
-    const [sr,tr,fr]=await Promise.all([fetch(u+'/summary'+sfx),fetch(u+'/trades'+sfx+'?limit=20000'),fetch(u+'/funding'+sfx)]);
+    const _sfx=typeof currentAccount!=='undefined'&&currentAccount===2?'2':'';
+    const [sr,tr,fr]=await Promise.all([fetch(u+'/summary'+_sfx),fetch(u+'/trades'+_sfx+'?limit=20000'),fetch(u+'/funding'+_sfx)]);
     if(!sr.ok)throw new Error('HTTP '+sr.status);
     S=await sr.json();
     T=(await tr.json()).trades||[];
     window.FUNDING_LIST=fr.ok?(await fr.json()).funding||[]:[];
     updateHeader();renderAll();
     document.getElementById('lu').textContent='Sync '+new Date().toLocaleTimeString('es-ES');
+    document.getElementById('hdr-title').textContent=currentAccount===2?'Lighter Tracker 2':'Lighter Tracker';
   }catch(e){
     document.getElementById('badge').textContent='Sin conexion';
     document.getElementById('badge').className='badge berr';
@@ -532,7 +508,6 @@ function showPane(t){
   if(t==='bycoin')renderByCoin();
   if(t==='daily')renderDaily();
   if(t==='monthly')renderMonthly();
-  if(t==='weekly')renderWeekly();
   if(t==='daily-asset')renderDailyAsset();
   if(t==='positions')renderPositions();
 }
@@ -912,8 +887,7 @@ function setTheme(t){
 
 
 // ── MOVIMIENTOS ──
-let currentAccount=1;
-function getMovKey(){return currentAccount===2?'lt-movimientos-2':'lt-movimientos';}
+// getMovKey() used instead
 const DEFAULT_MOVIMIENTOS=[
   {id:1,tipo:'deposit',amount:20,date:'2026-05-06'},
   {id:2,tipo:'deposit',amount:30,date:'2026-05-06'},
@@ -980,15 +954,90 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 
 
+// ═══════════════════════════════════
+// MULTI-ACCOUNT & WEEKLY
+// ═══════════════════════════════════
+let currentAccount = 1;
+function getMovKey(){return currentAccount===2?'lt-movimientos-2':'lt-movimientos';}
+
+
 function switchAccount(n){
-  currentAccount=n;
-  LT={};LT_T=[];window.FUNDING_LIST=[];
-  renderDashboard();ltRenderStats();ltRenderTable();
-  document.getElementById('exch-lt1').classList.toggle('active',n===1);
-  document.getElementById('exch-lt2').classList.toggle('active',n===2);
-  document.getElementById('logo-title').textContent=n===1?'Tracker':'Tracker 2';
-  document.getElementById('logo-sub').textContent='Cargando...';
+  if(currentAccount === n) return;
+  currentAccount = n;
+  // Clear all data immediately
+  S={}; T=[]; window.FUNDING_LIST=[];
+  // Show loading state
+  document.getElementById('hdr-title').textContent = n===1 ? 'Lighter Tracker' : 'Lighter Tracker 2';
+  document.getElementById('sub').textContent = 'Cargando cuenta '+n+'...';
+  document.getElementById('badge').textContent = 'Cargando...';
+  document.getElementById('badge').className = 'badge';
+  // Update buttons
+  document.getElementById('exch-lt1').classList.toggle('active', n===1);
+  document.getElementById('exch-lt2').classList.toggle('active', n===2);
+  // Clear all displayed stats to dashes
+  document.querySelectorAll('.sval').forEach(e=>{e.textContent='—';e.className='sval neu';});
+  document.querySelectorAll('.ssub').forEach(e=>{e.textContent='—';});
+  document.querySelectorAll('tbody').forEach(b=>{b.innerHTML='<tr><td colspan="99" class="empty">Cargando...</td></tr>';});
+  // Update movimientos section
+  renderMovimientos();
+  // Fetch data for new account
   fetchAll();
+}
+
+// Patch fetchAll to use account suffix
+const _origFetchAll = fetchAll;
+fetchAll = async function(){
+  const u = getUrl(); if(!u){showPane('config');return;}
+  const btn = document.querySelector('[onclick="fetchAll()"]');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i>';}
+  const sfx = currentAccount === 2 ? '2' : '';
+  try{
+    const [sr,tr,fr] = await Promise.all([
+      fetch(u+'/summary'+sfx),
+      fetch(u+'/trades'+sfx+'?limit=20000'),
+      fetch(u+'/funding'+sfx)
+    ]);
+    if(!sr.ok) throw new Error('HTTP '+sr.status);
+    S = await sr.json();
+    T = (await tr.json()).trades || [];
+    window.FUNDING_LIST = fr.ok ? (await fr.json()).funding || [] : [];
+    updateHeader(); renderAll();
+    document.getElementById('lu').textContent = 'Sync '+new Date().toLocaleTimeString('es-ES');
+    document.getElementById('hdr-title').textContent = currentAccount===2 ? 'Lighter Tracker 2' : 'Lighter Tracker';
+  }catch(e){
+    document.getElementById('badge').textContent = 'Sin conexion';
+    document.getElementById('badge').className = 'badge berr';
+    document.getElementById('sub').textContent = 'Error: '+e.message;
+  }finally{
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-refresh"></i>';}
+  }
+};
+
+// Patch MOV_KEY usages - override loadMovimientos and saveMovimientos
+const _origLoadMov = loadMovimientos;
+loadMovimientos = function(){
+  try{
+    const raw = localStorage.getItem(getMovKey());
+    if(raw) return JSON.parse(raw);
+    if(currentAccount===1){
+      localStorage.setItem(getMovKey(), JSON.stringify(DEFAULT_MOVIMIENTOS));
+      return DEFAULT_MOVIMIENTOS;
+    }
+    return [];
+  }catch(e){return [];}
+};
+const _origSaveMov = saveMovimientos;
+saveMovimientos = function(movs){
+  localStorage.setItem(getMovKey(), JSON.stringify(movs));
+};
+
+// Weekly tab
+if(typeof showPane === 'function'){
+  const _origShowPane = showPane;
+  showPane = function(t){
+    _origShowPane(t);
+    if(t==='weekly') renderWeekly();
+  };
 }
 
 function getWeekKey(dateStr){
@@ -1018,8 +1067,7 @@ function renderWeekly(){
     const day=pts(t.ts).toISOString().slice(0,10);
     const k=getWeekKey(day);
     if(!map[k])map[k]={pnl:0,count:0,wins:0};
-    map[k].pnl+=t.pnl;map[k].count++;
-    if(t.pnl>0)map[k].wins++;
+    map[k].pnl+=t.pnl;map[k].count++;if(t.pnl>0)map[k].wins++;
   });
   (window.FUNDING_LIST||[]).forEach(f=>{
     if(!f.ts)return;
@@ -1039,34 +1087,18 @@ function renderWeekly(){
   if(!weeks.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
   body.innerHTML=weeks.map(w=>{
     const d=map[w]||{pnl:0,count:0,wins:0};
-    const fund=fundMap[w]||0;
-    const total=d.pnl+fund;
+    const fund=fundMap[w]||0;const total=d.pnl+fund;
     const pc=d.pnl>0?'pos':d.pnl<0?'neg':'neu';
     const tc=total>0?'pos':total<0?'neg':'neu';
     const fp=fund>0?'pos':fund<0?'neg':'neu';
     const wr=d.count?Math.round(d.wins/d.count*100):0;
     const bal=balMap[w]||INITIAL_CAPITAL;
     const pct=bal>0?(total/bal)*100:0;
-    return '<tr>'
-      +'<td style="font-weight:600;white-space:nowrap;">'+w+'<br><small style="color:var(--text3);font-weight:400;">'+getWeekRange(w)+'</small></td>'
-      +'<td>'+d.count+'</td>'
-      +'<td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(2)+' U</span></td>'
-      +'<td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td>'
-      +'<td><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(2)+' U</span></td>'
-      +'<td><span class="'+tc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td>'
-      +'<td>'+wr+'%</td>'
-      +'</tr>';
+    return '<tr><td style="font-weight:600;white-space:nowrap;">'+w+'<br><small style="color:var(--text3);">'+getWeekRange(w)+'</small></td><td>'+d.count+'</td><td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(2)+' U</span></td><td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td><td><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(2)+' U</span></td><td><span class="'+tc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td><td>'+wr+'%</td></tr>';
   }).join('');
   const last12=sortedAsc.slice(-12);
   if(window._weeklyChart)window._weeklyChart.destroy();
-  window._weeklyChart=new Chart(document.getElementById('weeklyChart').getContext('2d'),{
-    type:'bar',
-    data:{labels:last12.map(w=>w.slice(5)),datasets:[
-      {label:'Trades',data:last12.map(w=>(map[w]?.pnl||0).toFixed(2)),backgroundColor:last12.map(w=>(map[w]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:4},
-      {label:'Funding',data:last12.map(w=>(fundMap[w]||0).toFixed(4)),backgroundColor:'rgba(100,100,200,0.5)',borderRadius:4}
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'var(--text)',font:{size:11}}}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
-  });
+  window._weeklyChart=new Chart(document.getElementById('weeklyChart').getContext('2d'),{type:'bar',data:{labels:last12.map(w=>w.slice(5)),datasets:[{label:'Trades',data:last12.map(w=>(map[w]?.pnl||0).toFixed(2)),backgroundColor:last12.map(w=>(map[w]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:4},{label:'Funding',data:last12.map(w=>(fundMap[w]||0).toFixed(4)),backgroundColor:'rgba(100,100,200,0.5)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'var(--text)',font:{size:11}}}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}});
 }
 
 </script>
