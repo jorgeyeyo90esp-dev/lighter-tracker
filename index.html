@@ -29,7 +29,8 @@ function setTheme(t){
 
 
 // ── MOVIMIENTOS ──
-const MOV_KEY='lt-movimientos';
+let currentAccount=1;
+function getMovKey(){return currentAccount===2?'lt-movimientos-2':'lt-movimientos';}
 const DEFAULT_MOVIMIENTOS=[
   {id:1,tipo:'deposit',amount:20,date:'2026-05-06'},
   {id:2,tipo:'deposit',amount:30,date:'2026-05-06'},
@@ -96,7 +97,94 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 
 
+function switchAccount(n){
+  currentAccount=n;
+  LT={};LT_T=[];window.FUNDING_LIST=[];
+  renderDashboard();ltRenderStats();ltRenderTable();
+  document.getElementById('exch-lt1').classList.toggle('active',n===1);
+  document.getElementById('exch-lt2').classList.toggle('active',n===2);
+  document.getElementById('logo-title').textContent=n===1?'Tracker':'Tracker 2';
+  document.getElementById('logo-sub').textContent='Cargando...';
+  fetchAll();
+}
 
+function getWeekKey(dateStr){
+  const d=new Date(dateStr+'T00:00:00Z');
+  const day=d.getUTCDay()||7;
+  d.setUTCDate(d.getUTCDate()+4-day);
+  const year=d.getUTCFullYear();
+  const startOfYear=new Date(Date.UTC(year,0,1));
+  const week=Math.ceil((((d-startOfYear)/86400000)+1)/7);
+  return year+'-W'+String(week).padStart(2,'0');
+}
+function getWeekRange(weekKey){
+  const [year,w]=weekKey.split('-W');
+  const simple=new Date(Date.UTC(parseInt(year),0,1+(parseInt(w)-1)*7));
+  const dow=simple.getUTCDay();
+  const monday=new Date(simple);
+  monday.setUTCDate(simple.getUTCDate()-(dow===0?6:dow-1));
+  const sunday=new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate()+6);
+  const fmt=d=>d.toISOString().slice(5,10);
+  return fmt(monday)+' → '+fmt(sunday);
+}
+function renderWeekly(){
+  const closes=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const map={},fundMap={};
+  closes.forEach(t=>{
+    const day=pts(t.ts).toISOString().slice(0,10);
+    const k=getWeekKey(day);
+    if(!map[k])map[k]={pnl:0,count:0,wins:0};
+    map[k].pnl+=t.pnl;map[k].count++;
+    if(t.pnl>0)map[k].wins++;
+  });
+  (window.FUNDING_LIST||[]).forEach(f=>{
+    if(!f.ts)return;
+    const ts=parseInt(f.ts);
+    const tsMs=ts<1000000000000?ts*1000:ts;
+    const day=new Date(tsMs).toISOString().slice(0,10);
+    const k=getWeekKey(day);
+    fundMap[k]=(fundMap[k]||0)+(f.payment||0);
+  });
+  const allW=new Set([...Object.keys(map),...Object.keys(fundMap)]);
+  const weeks=[...allW].sort((a,b)=>b.localeCompare(a));
+  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem(getMovKey());if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
+  const sortedAsc=[...weeks].sort((a,b)=>a.localeCompare(b));
+  let runPnl=0;const balMap={};
+  sortedAsc.forEach(w=>{balMap[w]=INITIAL_CAPITAL+runPnl;runPnl+=(map[w]?.pnl||0)+(fundMap[w]||0);});
+  const body=document.getElementById('weekly-body');
+  if(!weeks.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
+  body.innerHTML=weeks.map(w=>{
+    const d=map[w]||{pnl:0,count:0,wins:0};
+    const fund=fundMap[w]||0;
+    const total=d.pnl+fund;
+    const pc=d.pnl>0?'pos':d.pnl<0?'neg':'neu';
+    const tc=total>0?'pos':total<0?'neg':'neu';
+    const fp=fund>0?'pos':fund<0?'neg':'neu';
+    const wr=d.count?Math.round(d.wins/d.count*100):0;
+    const bal=balMap[w]||INITIAL_CAPITAL;
+    const pct=bal>0?(total/bal)*100:0;
+    return '<tr>'
+      +'<td style="font-weight:600;white-space:nowrap;">'+w+'<br><small style="color:var(--text3);font-weight:400;">'+getWeekRange(w)+'</small></td>'
+      +'<td>'+d.count+'</td>'
+      +'<td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+  const last12=sortedAsc.slice(-12);
+  if(window._weeklyChart)window._weeklyChart.destroy();
+  window._weeklyChart=new Chart(document.getElementById('weeklyChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:last12.map(w=>w.slice(5)),datasets:[
+      {label:'Trades',data:last12.map(w=>(map[w]?.pnl||0).toFixed(2)),backgroundColor:last12.map(w=>(map[w]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:4},
+      {label:'Funding',data:last12.map(w=>(fundMap[w]||0).toFixed(4)),backgroundColor:'rgba(100,100,200,0.5)',borderRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'var(--text)',font:{size:11}}}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
+  });
+}
 
 </script>
 <style>
@@ -173,10 +261,8 @@ tbody tr:hover td{background:var(--bg2);}
 .tbtn-blue{background:linear-gradient(135deg,#0d1421,#38bdf8);}
 .tbtn-warm{background:#f2ebe0;box-shadow:0 0 0 1px rgba(120,80,40,.25);}
 @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-
-.exch-switcher{display:flex;gap:4px;background:var(--bg2);border-radius:var(--rl);padding:3px;}
-.exch-btn{padding:5px 14px;border:none;border-radius:var(--r);cursor:pointer;font-size:12px;font-weight:600;background:transparent;color:var(--text2);transition:all .15s;}
-.exch-btn.active{background:var(--bg);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,.12);}
+.exch-btn{flex:1;padding:4px 6px;border:none;border-radius:var(--r);cursor:pointer;font-size:11px;font-weight:600;background:transparent;color:var(--text2);transition:all .15s;}
+.exch-btn.active{background:var(--bg3);color:var(--text);}
 </style>
 </head>
 <body>
@@ -193,11 +279,7 @@ tbody tr:hover td{background:var(--bg2);}
 <div class="hdr">
   <div class="logo">
     <div class="dot"></div>
-    <div><h1 id="hdr-title">Lighter 1</h1><span class="sub" id="sub">Conectando...</span></div>
-  </div>
-  <div class="exch-switcher">
-    <button class="exch-btn active" id="exch-lt1" onclick="switchAccount(1)">⚡ Lighter 1</button>
-    <button class="exch-btn" id="exch-lt2" onclick="switchAccount(2)">⚡ Lighter 2</button>
+    <div><h1>Lighter Tracker</h1><span class="sub" id="sub">Conectando...</span></div>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
     <span style="font-size:11px;color:var(--text3);" id="lu"></span>
@@ -297,15 +379,11 @@ tbody tr:hover td{background:var(--bg2);}
 <!-- SEMANAL -->
 <div class="pane" id="pane-weekly">
   <div class="card"><div class="cb"><div class="ox">
-    <table><thead><tr>
-      <th>Semana</th><th>Trades</th><th>P&amp;L trades</th><th>Funding</th><th>P&amp;L total</th><th>% cuenta</th><th>WR</th>
-    </tr></thead>
+    <table><thead><tr><th>Semana</th><th>Trades</th><th>P&amp;L trades</th><th>Funding</th><th>P&amp;L total</th><th>% cuenta</th><th>WR</th></tr></thead>
     <tbody id="weekly-body"><tr><td colspan="7" class="empty">Cargando...</td></tr></tbody>
     </table>
   </div></div></div>
-  <div class="card" style="margin-top:1rem;"><div class="cwrap" style="height:260px;">
-    <canvas id="weeklyChart" role="img" aria-label="PNL semanal">Sin datos</canvas>
-  </div></div>
+  <div class="card" style="margin-top:1rem;"><div class="cwrap" style="height:260px;"><canvas id="weeklyChart">Sin datos</canvas></div></div>
 </div>
 
 <!-- DIARIO X ACTIVO -->
@@ -430,7 +508,7 @@ async function fetchAll(){
 
 function startIv(){
   if(iv)clearInterval(iv);
-  iv=setInterval(fetchAll,15*60*1000);
+  iv=setInterval(fetchAll,15000);
 }
 
 function updateHeader(){
@@ -503,7 +581,7 @@ function renderStats(){
   const fv=S.funding_total;
   const fe=document.getElementById('sf');
   if(fv!==undefined){fe.textContent=(fv>=0?'+':'')+Number(fv).toFixed(4)+' USDC';fe.className='sval '+(fv>0?'pos':fv<0?'neg':'neu');}
-  const capTotalInv2=(function(){try{const raw=localStorage.getItem(typeof currentAccount!=='undefined'&&currentAccount===2?'lt-movimientos-2':'lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
+  const capTotalInv2=(function(){try{const raw=localStorage.getItem(getMovKey());if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
   const totalCuenta=capTotalInv2+(S.total_pnl||0);
   const swEl=document.getElementById('sw');
   swEl.textContent='$'+totalCuenta.toFixed(2);
@@ -512,7 +590,7 @@ function renderStats(){
   const ge=document.getElementById('sg');
   const capInvertido=(function(){
     try{
-      const raw=localStorage.getItem(typeof currentAccount!=='undefined'&&currentAccount===2?'lt-movimientos-2':'lt-movimientos');
+      const raw=localStorage.getItem(getMovKey());
       if(!raw) return 815;
       const movs=JSON.parse(raw);
       return movs.reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;
@@ -658,84 +736,6 @@ function renderDailyAsset(){
   }).join('');
 }
 
-function getWeekKey(dateStr){
-  const d=new Date(dateStr+'T00:00:00Z');
-  const day=d.getUTCDay()||7;
-  d.setUTCDate(d.getUTCDate()+4-day);
-  const year=d.getUTCFullYear();
-  const startOfYear=new Date(Date.UTC(year,0,1));
-  const week=Math.ceil((((d-startOfYear)/86400000)+1)/7);
-  return year+'-W'+String(week).padStart(2,'0');
-}
-function getWeekRange(weekKey){
-  const [year,w]=weekKey.split('-W');
-  const simple=new Date(Date.UTC(parseInt(year),0,1+(parseInt(w)-1)*7));
-  const dow=simple.getUTCDay();
-  const monday=new Date(simple);
-  monday.setUTCDate(simple.getUTCDate()-(dow===0?6:dow-1));
-  const sunday=new Date(monday);
-  sunday.setUTCDate(monday.getUTCDate()+6);
-  const fmt=d=>d.toISOString().slice(5,10);
-  return fmt(monday)+' → '+fmt(sunday);
-}
-function renderWeekly(){
-  const closes=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
-  const map={},fundMap={};
-  closes.forEach(t=>{
-    const day=pts(t.ts).toISOString().slice(0,10);
-    const k=getWeekKey(day);
-    if(!map[k])map[k]={pnl:0,count:0,wins:0};
-    map[k].pnl+=t.pnl;map[k].count++;
-    if(t.pnl>0)map[k].wins++;
-  });
-  (window.FUNDING_LIST||[]).forEach(f=>{
-    if(!f.ts)return;
-    const ts=parseInt(f.ts);
-    const tsMs=ts<1000000000000?ts*1000:ts;
-    const day=new Date(tsMs).toISOString().slice(0,10);
-    const k=getWeekKey(day);
-    fundMap[k]=(fundMap[k]||0)+(f.payment||0);
-  });
-  const allW=new Set([...Object.keys(map),...Object.keys(fundMap)]);
-  const weeks=[...allW].sort((a,b)=>b.localeCompare(a));
-  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem(typeof currentAccount!=='undefined'&&currentAccount===2?'lt-movimientos-2':'lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
-  const sortedAsc=[...weeks].sort((a,b)=>a.localeCompare(b));
-  let runPnl=0;const balMap={};
-  sortedAsc.forEach(w=>{balMap[w]=INITIAL_CAPITAL+runPnl;runPnl+=(map[w]?.pnl||0)+(fundMap[w]||0);});
-  const body=document.getElementById('weekly-body');
-  if(!weeks.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
-  body.innerHTML=weeks.map(w=>{
-    const d=map[w]||{pnl:0,count:0,wins:0};
-    const fund=fundMap[w]||0;
-    const total=d.pnl+fund;
-    const pc=d.pnl>0?'pos':d.pnl<0?'neg':'neu';
-    const tc=total>0?'pos':total<0?'neg':'neu';
-    const fp=fund>0?'pos':fund<0?'neg':'neu';
-    const wr=d.count?Math.round(d.wins/d.count*100):0;
-    const bal=balMap[w]||INITIAL_CAPITAL;
-    const pct=bal>0?(total/bal)*100:0;
-    return '<tr>'
-      +'<td style="font-weight:600;white-space:nowrap;">'+w+'<br><small style="color:var(--text3);font-weight:400;">'+getWeekRange(w)+'</small></td>'
-      +'<td>'+d.count+'</td>'
-      +'<td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(2)+' U</span></td>'
-      +'<td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td>'
-      +'<td><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(2)+' U</span></td>'
-      +'<td><span class="'+tc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td>'
-      +'<td>'+wr+'%</td>'
-      +'</tr>';
-  }).join('');
-  const last12=sortedAsc.slice(-12);
-  if(window._weeklyChart)window._weeklyChart.destroy();
-  window._weeklyChart=new Chart(document.getElementById('weeklyChart').getContext('2d'),{
-    type:'bar',
-    data:{labels:last12.map(w=>w.slice(5)),datasets:[
-      {label:'Trades',data:last12.map(w=>(map[w]?.pnl||0).toFixed(2)),backgroundColor:last12.map(w=>(map[w]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:4},
-      {label:'Funding',data:last12.map(w=>(fundMap[w]||0).toFixed(4)),backgroundColor:'rgba(100,100,200,0.5)',borderRadius:4}
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'var(--text)',font:{size:11}}}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
-  });
-}
-
 function renderMonthly(){
   const closes=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
   const map={};
@@ -757,7 +757,7 @@ function renderMonthly(){
   });
   Object.keys(fundByMonth).forEach(k=>{if(!map[k])map[k]={key:k,pnl:0,count:0,wins:0};});
   const months=Object.values(map).sort((a,b)=>b.key.localeCompare(a.key));
-  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem(typeof currentAccount!=='undefined'&&currentAccount===2?'lt-movimientos-2':'lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
+  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem(getMovKey());if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
   const sortedAsc=[...months].sort((a,b)=>a.key.localeCompare(b.key));
   let runningPnl=0;
   const balMap={};
@@ -825,7 +825,7 @@ function renderDaily(){
   });
   const grandTotal=days.reduce((a,d)=>a+d.pnl,0);
   let cum=grandTotal;
-  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem(typeof currentAccount!=='undefined'&&currentAccount===2?'lt-movimientos-2':'lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
+  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem(getMovKey());if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
   const sortedAsc=[...days].sort((a,b)=>a.key.localeCompare(b.key));
   document.getElementById('daily-body').innerHTML=days.map(d=>{
     const pc=d.pnl>0?'pos':d.pnl<0?'neg':'neu';
@@ -907,7 +907,8 @@ function setTheme(t){
 
 
 // ── MOVIMIENTOS ──
-const MOV_KEY='lt-movimientos';
+let currentAccount=1;
+function getMovKey(){return currentAccount===2?'lt-movimientos-2':'lt-movimientos';}
 const DEFAULT_MOVIMIENTOS=[
   {id:1,tipo:'deposit',amount:20,date:'2026-05-06'},
   {id:2,tipo:'deposit',amount:30,date:'2026-05-06'},
@@ -974,48 +975,94 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 
 
-// ── Account switcher ──
-let currentAccount = 1;
-let T2=[], F2=[], S2={};
-
 function switchAccount(n){
-  currentAccount = n;
-  // Clear data immediately to avoid showing wrong account data
-  S={};T=[];window.FUNDING_LIST=[];
-  renderAll();
-  document.getElementById('exch-lt1').classList.toggle('active', n===1);
-  document.getElementById('exch-lt2').classList.toggle('active', n===2);
-  document.getElementById('hdr-title').textContent = 'Lighter ' + n;
-  document.getElementById('sub').textContent = 'Cargando cuenta '+n+'...';
+  currentAccount=n;
+  LT={};LT_T=[];window.FUNDING_LIST=[];
+  renderDashboard();ltRenderStats();ltRenderTable();
+  document.getElementById('exch-lt1').classList.toggle('active',n===1);
+  document.getElementById('exch-lt2').classList.toggle('active',n===2);
+  document.getElementById('logo-title').textContent=n===1?'Tracker':'Tracker 2';
+  document.getElementById('logo-sub').textContent='Cargando...';
   fetchAll();
 }
 
-const _origFetchAll = fetchAll;
-fetchAll = async function(){
-  const u=getUrl();if(!u)return;
-  const btn=document.querySelector('[onclick="fetchAll()"]');
-  if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> Cargando...';}
-  try{
-    const suffix = currentAccount===2 ? '2' : '';
-    const [sr,tr,fr]=await Promise.all([
-      fetch(u+'/summary'+suffix),
-      fetch(u+'/trades'+suffix+'?limit=20000'),
-      fetch(u+'/funding'+suffix)
-    ]);
-    if(!sr.ok)throw new Error('HTTP '+sr.status);
-    S=await sr.json();
-    T=(await tr.json()).trades||[];
-    window.FUNDING_LIST=fr.ok?(await fr.json()).funding||[]:[];
-    updateHeader();renderAll();
-    document.getElementById('lu').textContent='Sync '+new Date().toLocaleTimeString('es-ES');
-  }catch(e){
-    document.getElementById('badge').textContent='Sin conexion';
-    document.getElementById('badge').className='badge berr';
-    document.getElementById('sub').textContent='Error: '+e.message;
-  }finally{
-    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-refresh"></i> Actualizar';}
-  }
-};
+function getWeekKey(dateStr){
+  const d=new Date(dateStr+'T00:00:00Z');
+  const day=d.getUTCDay()||7;
+  d.setUTCDate(d.getUTCDate()+4-day);
+  const year=d.getUTCFullYear();
+  const startOfYear=new Date(Date.UTC(year,0,1));
+  const week=Math.ceil((((d-startOfYear)/86400000)+1)/7);
+  return year+'-W'+String(week).padStart(2,'0');
+}
+function getWeekRange(weekKey){
+  const [year,w]=weekKey.split('-W');
+  const simple=new Date(Date.UTC(parseInt(year),0,1+(parseInt(w)-1)*7));
+  const dow=simple.getUTCDay();
+  const monday=new Date(simple);
+  monday.setUTCDate(simple.getUTCDate()-(dow===0?6:dow-1));
+  const sunday=new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate()+6);
+  const fmt=d=>d.toISOString().slice(5,10);
+  return fmt(monday)+' → '+fmt(sunday);
+}
+function renderWeekly(){
+  const closes=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
+  const map={},fundMap={};
+  closes.forEach(t=>{
+    const day=pts(t.ts).toISOString().slice(0,10);
+    const k=getWeekKey(day);
+    if(!map[k])map[k]={pnl:0,count:0,wins:0};
+    map[k].pnl+=t.pnl;map[k].count++;
+    if(t.pnl>0)map[k].wins++;
+  });
+  (window.FUNDING_LIST||[]).forEach(f=>{
+    if(!f.ts)return;
+    const ts=parseInt(f.ts);
+    const tsMs=ts<1000000000000?ts*1000:ts;
+    const day=new Date(tsMs).toISOString().slice(0,10);
+    const k=getWeekKey(day);
+    fundMap[k]=(fundMap[k]||0)+(f.payment||0);
+  });
+  const allW=new Set([...Object.keys(map),...Object.keys(fundMap)]);
+  const weeks=[...allW].sort((a,b)=>b.localeCompare(a));
+  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem(getMovKey());if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
+  const sortedAsc=[...weeks].sort((a,b)=>a.localeCompare(b));
+  let runPnl=0;const balMap={};
+  sortedAsc.forEach(w=>{balMap[w]=INITIAL_CAPITAL+runPnl;runPnl+=(map[w]?.pnl||0)+(fundMap[w]||0);});
+  const body=document.getElementById('weekly-body');
+  if(!weeks.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
+  body.innerHTML=weeks.map(w=>{
+    const d=map[w]||{pnl:0,count:0,wins:0};
+    const fund=fundMap[w]||0;
+    const total=d.pnl+fund;
+    const pc=d.pnl>0?'pos':d.pnl<0?'neg':'neu';
+    const tc=total>0?'pos':total<0?'neg':'neu';
+    const fp=fund>0?'pos':fund<0?'neg':'neu';
+    const wr=d.count?Math.round(d.wins/d.count*100):0;
+    const bal=balMap[w]||INITIAL_CAPITAL;
+    const pct=bal>0?(total/bal)*100:0;
+    return '<tr>'
+      +'<td style="font-weight:600;white-space:nowrap;">'+w+'<br><small style="color:var(--text3);font-weight:400;">'+getWeekRange(w)+'</small></td>'
+      +'<td>'+d.count+'</td>'
+      +'<td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+fp+'">'+(fund>=0?'+':'')+fund.toFixed(4)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(total>=0?'+':'')+total.toFixed(2)+' U</span></td>'
+      +'<td><span class="'+tc+'">'+(pct>=0?'+':'')+pct.toFixed(2)+'%</span></td>'
+      +'<td>'+wr+'%</td>'
+      +'</tr>';
+  }).join('');
+  const last12=sortedAsc.slice(-12);
+  if(window._weeklyChart)window._weeklyChart.destroy();
+  window._weeklyChart=new Chart(document.getElementById('weeklyChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:last12.map(w=>w.slice(5)),datasets:[
+      {label:'Trades',data:last12.map(w=>(map[w]?.pnl||0).toFixed(2)),backgroundColor:last12.map(w=>(map[w]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:4},
+      {label:'Funding',data:last12.map(w=>(fundMap[w]||0).toFixed(4)),backgroundColor:'rgba(100,100,200,0.5)',borderRadius:4}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'var(--text)',font:{size:11}}}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}
+  });
+}
 
 </script>
 </body>
