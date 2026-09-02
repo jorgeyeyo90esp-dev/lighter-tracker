@@ -1079,6 +1079,22 @@ function renderWeekly(){
   window._weeklyChart=new Chart(document.getElementById('weeklyChart').getContext('2d'),{type:'bar',data:{labels:last12.map(w=>w.slice(5)),datasets:[{label:'Trades',data:last12.map(w=>(map[w]?.pnl||0).toFixed(2)),backgroundColor:last12.map(w=>(map[w]?.pnl||0)>=0?'#1D9E7599':'#E24B4A99'),borderRadius:4},{label:'Funding',data:last12.map(w=>(fundMap[w]||0).toFixed(4)),backgroundColor:'rgba(100,100,200,0.5)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'var(--text)',font:{size:11}}}},scales:{y:{ticks:{callback:v=>(v>=0?'+':'')+parseFloat(v).toFixed(2),font:{size:11}},grid:{color:'rgba(128,128,128,0.1)'}},x:{ticks:{font:{size:11}},grid:{display:false}}}}});
 }
 
+
+function switchAccount(n){
+  if(currentAccount === n) return;
+  currentAccount = n;
+  S={}; T=[]; window.FUNDING_LIST=[];
+  document.getElementById('hdr-title').textContent = n===1 ? 'Lighter Tracker' : 'Lighter Tracker 2';
+  document.getElementById('sub').textContent = 'Cargando cuenta '+n+'...';
+  document.getElementById('badge').textContent = 'Cargando...';
+  document.getElementById('badge').className = 'badge';
+  document.getElementById('exch-lt1').classList.toggle('active', n===1);
+  document.getElementById('exch-lt2').classList.toggle('active', n===2);
+  document.querySelectorAll('.sval').forEach(e=>{e.textContent='—';e.className='sval neu';});
+  document.querySelectorAll('.ssub').forEach(e=>{e.textContent='—';});
+  document.querySelectorAll('tbody').forEach(b=>{b.innerHTML='<tr><td colspan="99" class="empty">Cargando...</td></tr>';});
+  renderMovimientos();
+  fetchAll();
+}
+
 </script>
-</body>
-</html>
