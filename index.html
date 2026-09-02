@@ -40,12 +40,12 @@ const DEFAULT_MOVIMIENTOS=[
   {id:7,tipo:'deposit',amount:75,date:'2026-05-13'}
 ];
 function loadMovimientos(){
-  const raw=localStorage.getItem(MOV_KEY);
+  const raw=localStorage.getItem(getMovKey());
   if(raw) return JSON.parse(raw);
-  localStorage.setItem(MOV_KEY,JSON.stringify(DEFAULT_MOVIMIENTOS));
+  localStorage.setItem(getMovKey(),JSON.stringify(DEFAULT_MOVIMIENTOS));
   return DEFAULT_MOVIMIENTOS;
 }
-function saveMovimientos(movs){localStorage.setItem(MOV_KEY,JSON.stringify(movs));}
+function saveMovimientos(movs){localStorage.setItem(getMovKey(),JSON.stringify(movs));}
 function getCapitalInicial(){
   return loadMovimientos().reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;
 }
@@ -430,7 +430,7 @@ async function fetchAll(){
 
 function startIv(){
   if(iv)clearInterval(iv);
-  iv=setInterval(fetchAll,15000);
+  iv=setInterval(fetchAll,15*60*1000);
 }
 
 function updateHeader(){
@@ -503,7 +503,7 @@ function renderStats(){
   const fv=S.funding_total;
   const fe=document.getElementById('sf');
   if(fv!==undefined){fe.textContent=(fv>=0?'+':'')+Number(fv).toFixed(4)+' USDC';fe.className='sval '+(fv>0?'pos':fv<0?'neg':'neu');}
-  const capTotalInv2=(function(){try{const raw=localStorage.getItem('lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
+  const capTotalInv2=(function(){try{const raw=localStorage.getItem(typeof currentAccount!=='undefined'&&currentAccount===2?'lt-movimientos-2':'lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
   const totalCuenta=capTotalInv2+(S.total_pnl||0);
   const swEl=document.getElementById('sw');
   swEl.textContent='$'+totalCuenta.toFixed(2);
@@ -512,7 +512,7 @@ function renderStats(){
   const ge=document.getElementById('sg');
   const capInvertido=(function(){
     try{
-      const raw=localStorage.getItem('lt-movimientos');
+      const raw=localStorage.getItem(typeof currentAccount!=='undefined'&&currentAccount===2?'lt-movimientos-2':'lt-movimientos');
       if(!raw) return 815;
       const movs=JSON.parse(raw);
       return movs.reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;
@@ -698,7 +698,7 @@ function renderWeekly(){
   });
   const allW=new Set([...Object.keys(map),...Object.keys(fundMap)]);
   const weeks=[...allW].sort((a,b)=>b.localeCompare(a));
-  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem('lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
+  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem(typeof currentAccount!=='undefined'&&currentAccount===2?'lt-movimientos-2':'lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
   const sortedAsc=[...weeks].sort((a,b)=>a.localeCompare(b));
   let runPnl=0;const balMap={};
   sortedAsc.forEach(w=>{balMap[w]=INITIAL_CAPITAL+runPnl;runPnl+=(map[w]?.pnl||0)+(fundMap[w]||0);});
@@ -757,7 +757,7 @@ function renderMonthly(){
   });
   Object.keys(fundByMonth).forEach(k=>{if(!map[k])map[k]={key:k,pnl:0,count:0,wins:0};});
   const months=Object.values(map).sort((a,b)=>b.key.localeCompare(a.key));
-  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem('lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
+  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem(typeof currentAccount!=='undefined'&&currentAccount===2?'lt-movimientos-2':'lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
   const sortedAsc=[...months].sort((a,b)=>a.key.localeCompare(b.key));
   let runningPnl=0;
   const balMap={};
@@ -825,7 +825,7 @@ function renderDaily(){
   });
   const grandTotal=days.reduce((a,d)=>a+d.pnl,0);
   let cum=grandTotal;
-  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem('lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
+  const INITIAL_CAPITAL=(function(){try{const raw=localStorage.getItem(typeof currentAccount!=='undefined'&&currentAccount===2?'lt-movimientos-2':'lt-movimientos');if(!raw)return 815;return JSON.parse(raw).reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;}catch(e){return 815;}})();
   const sortedAsc=[...days].sort((a,b)=>a.key.localeCompare(b.key));
   document.getElementById('daily-body').innerHTML=days.map(d=>{
     const pc=d.pnl>0?'pos':d.pnl<0?'neg':'neu';
@@ -918,12 +918,12 @@ const DEFAULT_MOVIMIENTOS=[
   {id:7,tipo:'deposit',amount:75,date:'2026-05-13'}
 ];
 function loadMovimientos(){
-  const raw=localStorage.getItem(MOV_KEY);
+  const raw=localStorage.getItem(getMovKey());
   if(raw) return JSON.parse(raw);
-  localStorage.setItem(MOV_KEY,JSON.stringify(DEFAULT_MOVIMIENTOS));
+  localStorage.setItem(getMovKey(),JSON.stringify(DEFAULT_MOVIMIENTOS));
   return DEFAULT_MOVIMIENTOS;
 }
-function saveMovimientos(movs){localStorage.setItem(MOV_KEY,JSON.stringify(movs));}
+function saveMovimientos(movs){localStorage.setItem(getMovKey(),JSON.stringify(movs));}
 function getCapitalInicial(){
   return loadMovimientos().reduce((a,m)=>a+(m.tipo==='deposit'?m.amount:-m.amount),0)||815;
 }
@@ -980,9 +980,13 @@ let T2=[], F2=[], S2={};
 
 function switchAccount(n){
   currentAccount = n;
+  // Clear data immediately to avoid showing wrong account data
+  S={};T=[];window.FUNDING_LIST=[];
+  renderAll();
   document.getElementById('exch-lt1').classList.toggle('active', n===1);
   document.getElementById('exch-lt2').classList.toggle('active', n===2);
   document.getElementById('hdr-title').textContent = 'Lighter ' + n;
+  document.getElementById('sub').textContent = 'Cargando cuenta '+n+'...';
   fetchAll();
 }
 
