@@ -8,6 +8,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Lighter Tracker</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script>var currentAccount=1;function getMovKey(){return currentAccount===2?"lt-movimientos-2":"lt-movimientos";}</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js">
 function setTheme(t){
   if(t==='light') document.documentElement.removeAttribute('data-theme');
@@ -959,32 +960,7 @@ document.addEventListener('DOMContentLoaded',function(){
 // ═══════════════════════════════════
 // MULTI-ACCOUNT & WEEKLY
 // ═══════════════════════════════════
-let currentAccount = 1;
-function getMovKey(){return currentAccount===2?'lt-movimientos-2':'lt-movimientos';}
 
-
-function switchAccount(n){
-  if(currentAccount === n) return;
-  currentAccount = n;
-  // Clear all data immediately
-  S={}; T=[]; window.FUNDING_LIST=[];
-  // Show loading state
-  document.getElementById('hdr-title').textContent = n===1 ? 'Lighter Tracker' : 'Lighter Tracker 2';
-  document.getElementById('sub').textContent = 'Cargando cuenta '+n+'...';
-  document.getElementById('badge').textContent = 'Cargando...';
-  document.getElementById('badge').className = 'badge';
-  // Update buttons
-  document.getElementById('exch-lt1').classList.toggle('active', n===1);
-  document.getElementById('exch-lt2').classList.toggle('active', n===2);
-  // Clear all displayed stats to dashes
-  document.querySelectorAll('.sval').forEach(e=>{e.textContent='—';e.className='sval neu';});
-  document.querySelectorAll('.ssub').forEach(e=>{e.textContent='—';});
-  document.querySelectorAll('tbody').forEach(b=>{b.innerHTML='<tr><td colspan="99" class="empty">Cargando...</td></tr>';});
-  // Update movimientos section
-  renderMovimientos();
-  // Fetch data for new account
-  fetchAll();
-}
 
 // Patch fetchAll to use account suffix
 const _origFetchAll = fetchAll;
