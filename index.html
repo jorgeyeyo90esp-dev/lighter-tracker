@@ -279,7 +279,11 @@ tbody tr:hover td{background:var(--bg2);}
 <div class="hdr">
   <div class="logo">
     <div class="dot"></div>
-    <div><h1>Lighter Tracker</h1><span class="sub" id="sub">Conectando...</span></div>
+    <div><h1 id="logo-title">Lighter Tracker</h1><span class="sub" id="sub">Conectando...</span></div>
+  </div>
+  <div style="display:flex;gap:4px;background:var(--bg2);border-radius:20px;padding:3px;">
+    <button class="exch-btn active" id="exch-lt1" onclick="switchAccount(1)">⚡ L1</button>
+    <button class="exch-btn" id="exch-lt2" onclick="switchAccount(2)">⚡ L2</button>
   </div>
   <div style="display:flex;gap:8px;align-items:center;">
     <span style="font-size:11px;color:var(--text3);" id="lu"></span>
