@@ -268,16 +268,16 @@ tbody tr:hover td{background:var(--bg2);}
 </div>
 
 <div class="stats">
-  <div class="stat"><div class="slbl">P&amp;L Total</div><div class="sval neu" id="sp">&#8212;</div><div class="ssub" id="sps">trades + funding</div></div>
-  <div class="stat"><div class="slbl">P&amp;L Hoy</div><div class="sval neu" id="sd">&#8212;</div><div class="ssub" id="sds">&#8212;</div></div>
-  <div class="stat"><div class="slbl">Funding total</div><div class="sval neu" id="sf">&#8212;</div><div class="ssub">fees acumulados</div></div>
-  <div class="stat"><div class="slbl">Total cuenta</div><div class="sval" id="sw">&#8212;</div><div class="ssub" id="sws">depósitos + P&L</div></div>
+  <div class="stat"><div class="slbl">P&amp;L Total</div><div class="sval neu" id="sp">—</div><div class="ssub" id="sps">trades + funding</div></div>
+  <div class="stat"><div class="slbl">P&amp;L Hoy</div><div class="sval neu" id="sd">—</div><div class="ssub" id="sds">—</div></div>
+  <div class="stat"><div class="slbl">Funding total</div><div class="sval neu" id="sf">—</div><div class="ssub">fees acumulados</div></div>
+  <div class="stat"><div class="slbl">Total cuenta</div><div class="sval" id="sw">—</div><div class="ssub" id="sws">depósitos + P&L</div></div>
 </div>
 <div class="stats" style="margin-top:-2px;">
-  <div class="stat"><div class="slbl">% Rentabilidad</div><div class="sval neu" id="sg">&#8212;</div><div class="ssub" id="sgs">sobre capital cuenta</div></div>
-  <div class="stat"><div class="slbl">P&amp;L 7 dias</div><div class="sval neu" id="s7">&#8212;</div><div class="ssub" id="s7s">&#8212;</div></div>
-  <div class="stat"><div class="slbl">P&amp;L 30 dias</div><div class="sval neu" id="s30">&#8212;</div><div class="ssub" id="s30s">&#8212;</div></div>
-  <div class="stat"><div class="slbl">Mejor dia</div><div class="sval pos" id="sbd">&#8212;</div><div class="ssub" id="sbds">&#8212;</div></div>
+  <div class="stat"><div class="slbl">% Rentabilidad</div><div class="sval neu" id="sg">—</div><div class="ssub" id="sgs">sobre capital cuenta</div></div>
+  <div class="stat"><div class="slbl">P&amp;L 7 dias</div><div class="sval neu" id="s7">—</div><div class="ssub" id="s7s">—</div></div>
+  <div class="stat"><div class="slbl">P&amp;L 30 dias</div><div class="sval neu" id="s30">—</div><div class="ssub" id="s30s">—</div></div>
+  <div class="stat"><div class="slbl">Mejor dia</div><div class="sval pos" id="sbd">—</div><div class="ssub" id="sbds">—</div></div>
 </div>
 
 <div class="tabs">
@@ -482,6 +482,8 @@ async function fetchAll(){
     document.getElementById('badge').textContent='Sin conexion';
     document.getElementById('badge').className='badge berr';
     document.getElementById('sub').textContent='Error: '+e.message;
+    // Auto retry after 30 seconds on error
+    setTimeout(fetchAll, 30000);
   }finally{
     if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-refresh"></i> Actualizar';}
   }
@@ -489,7 +491,7 @@ async function fetchAll(){
 
 function startIv(){
   if(iv)clearInterval(iv);
-  iv=setInterval(fetchAll,15000);
+  iv=setInterval(fetchAll,5*60*1000);
 }
 
 function updateHeader(){
@@ -553,7 +555,7 @@ function renderStats(){
   function setPnl(id,sub,val,subTxt){
     const e=document.getElementById(id);
     if(val!==null&&val!==undefined){e.textContent=(val>=0?'+':'')+Number(val).toFixed(2)+' USDC';e.className='sval '+(val>0?'pos':val<0?'neg':'neu');}
-    else{e.textContent='&#8212;';e.className='sval neu';}
+    else{e.textContent='—';e.className='sval neu';}
     if(sub&&subTxt)document.getElementById(sub).textContent=subTxt;
   }
   setPnl('sp','sps',S.total_pnl,'Trades: '+(S.trade_pnl>=0?'+':'')+Number(S.trade_pnl||0).toFixed(2)+' | Funding: '+(S.funding_total>=0?'+':'')+Number(S.funding_total||0).toFixed(2));
@@ -587,7 +589,7 @@ function renderStats(){
     const vol=closes.reduce((a,t)=>a+(t.price||0)*(t.size||0),0);
     const pct=vol>0&&S.total_pnl!==undefined?((S.total_pnl/vol)*100):null;
     if(pct!==null){ge.textContent=(pct>=0?'+':'')+pct.toFixed(4)+'%';ge.className='sval '+(pct>0?'pos':pct<0?'neg':'neu');document.getElementById('sgs').textContent='sobre volumen $'+vol.toLocaleString('es-ES',{maximumFractionDigits:0});}
-    else{ge.textContent='&#8212;';ge.className='sval neu';}
+    else{ge.textContent='—';ge.className='sval neu';}
   }
   const now=Date.now();
   const pnl7=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl)&&pts(t.ts)>=(now-7*86400000)).reduce((a,t)=>a+t.pnl,0);
