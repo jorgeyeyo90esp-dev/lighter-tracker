@@ -96,44 +96,7 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 
 
-// ── Account switcher ──
-let currentAccount = 1;
-let T2=[], F2=[], S2={};
 
-function switchAccount(n){
-  currentAccount = n;
-  document.getElementById('exch-lt1').classList.toggle('active', n===1);
-  document.getElementById('exch-lt2').classList.toggle('active', n===2);
-  document.getElementById('hdr-title').textContent = 'Lighter ' + n;
-  fetchAll();
-}
-
-const _origFetchAll = fetchAll;
-fetchAll = async function(){
-  const u=getUrl();if(!u)return;
-  const btn=document.querySelector('[onclick="fetchAll()"]');
-  if(btn){btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite;"></i> Cargando...';}
-  try{
-    const suffix = currentAccount===2 ? '2' : '';
-    const [sr,tr,fr]=await Promise.all([
-      fetch(u+'/summary'+suffix),
-      fetch(u+'/trades'+suffix+'?limit=20000'),
-      fetch(u+'/funding'+suffix)
-    ]);
-    if(!sr.ok)throw new Error('HTTP '+sr.status);
-    S=await sr.json();
-    T=(await tr.json()).trades||[];
-    window.FUNDING_LIST=fr.ok?(await fr.json()).funding||[]:[];
-    updateHeader();renderAll();
-    document.getElementById('lu').textContent='Sync '+new Date().toLocaleTimeString('es-ES');
-  }catch(e){
-    document.getElementById('badge').textContent='Sin conexion';
-    document.getElementById('badge').className='badge berr';
-    document.getElementById('sub').textContent='Error: '+e.message;
-  }finally{
-    if(btn){btn.disabled=false;btn.innerHTML='<i class="ti ti-refresh"></i> Actualizar';}
-  }
-};
 
 </script>
 <style>
