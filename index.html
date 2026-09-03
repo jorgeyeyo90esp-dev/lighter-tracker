@@ -336,7 +336,7 @@ tbody tr:hover td{background:var(--bg2);}
     <div class="cwrap" style="height:220px;"><canvas id="dailyChart" role="img" aria-label="P&L diario">Sin datos</canvas></div>
   </div></div>
   <div class="card"><div class="cb"><div class="ox">
-    <table><thead><tr><th>Fecha</th><th>Trades</th><th>P&amp;L dia</th><th>% del total</th><th>% cuenta</th><th>Acumulado</th><th>WR</th></tr></thead>
+    <table><thead><tr><th>Fecha</th><th>Trades</th><th>P&amp;L dia</th><th>% del total</th><th>% cuenta</th><th>Acumulado</th><th>WR</th><th>Reserva</th></tr></thead>
     <tbody id="daily-body"></tbody></table>
   </div></div></div>
 </div>
@@ -827,12 +827,16 @@ function renderDaily(){
     const balBefore2=INITIAL_CAPITAL+sortedAsc.slice(0,sortedAsc.findIndex(x=>x.key===d.key)).reduce((a,x)=>a+x.pnl,0);
     const dayPct2=balBefore2>0?(d.pnl/balBefore2)*100:0;
     const cumVal=cum;cum-=d.pnl;
+    const reservaPct=getReservaPct();
+    const reservaAmt=d.pnl>0?(d.pnl*reservaPct/100):null;
+    const reservaStr=reservaAmt!==null?'<span class="pos">'+reservaAmt.toFixed(2)+' U</span>':'<span style="color:var(--text3);">—</span>';
     const row='<tr><td style="white-space:nowrap;">'+d.key+'</td><td>'+d.count+'</td>'
       +'<td><span class="'+pc+'">'+(d.pnl>=0?'+':'')+d.pnl.toFixed(4)+' U</span></td>'
       +'<td><span class="'+pc+'">'+(pct>=0?'+':'')+pct.toFixed(1)+'%</span></td>'
       +'<td><span class="'+pc+'">'+(dayPct2>=0?'+':'')+dayPct2.toFixed(2)+'%</span></td>'
       +'<td><span class="'+(cumVal>=0?'pos':'neg')+'">'+(cumVal>=0?'+':'')+cumVal.toFixed(2)+' U</span></td>'
-      +'<td>'+wr+'%</td></tr>';
+      +'<td>'+wr+'%</td>'
+      +'<td>'+reservaStr+'</td></tr>';
     return row;
   }).join('');
 }
