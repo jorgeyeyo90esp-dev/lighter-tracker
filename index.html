@@ -145,7 +145,7 @@ function renderWeekly(){
   let runPnl=0;const balMap={};
   sortedAsc.forEach(w=>{balMap[w]=INITIAL_CAPITAL+runPnl;runPnl+=(map[w]?.pnl||0)+(fundMap[w]||0);});
   const body=document.getElementById('weekly-body');
-  if(!weeks.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
+  if(!weeks.length){body.innerHTML='<tr><td colspan="8" class="empty">Sin datos.</td></tr>';return;}
   body.innerHTML=weeks.map(w=>{
     const d=map[w]||{pnl:0,count:0,wins:0};
     const fund=fundMap[w]||0;const total=d.pnl+fund;
@@ -392,6 +392,22 @@ tbody tr:hover td{background:var(--bg2);}
       <button class="btn bg" onclick="testConn()"><i class="ti ti-wifi"></i> Test</button>
     </div>
     <div id="test-res" style="margin-top:8px;font-size:13px;"></div>
+  </div></div>
+
+  <!-- RESERVA % -->
+  <div class="card" style="margin-top:1rem;"><div class="cb">
+    <p style="font-size:15px;font-weight:600;margin-bottom:4px;">Reserva de ganancias</p>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Porcentaje a reservar de los días con ganancia positiva. Aparece como columna en la pestaña Diario.</p>
+    <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;">
+      <div class="field" style="margin:0;flex:1;min-width:120px;">
+        <label>% a reservar</label>
+        <input type="number" id="reserva-pct" placeholder="25" min="0" max="100" step="0.5" style="width:100%;">
+      </div>
+      <div style="padding-bottom:1px;">
+        <button class="btn bp" onclick="saveReservaPct()"><i class="ti ti-check"></i> Guardar</button>
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:12px;color:var(--text3);" id="reserva-status"></div>
   </div></div>
 
   <!-- DEPOSITOS Y RETIROS -->
@@ -740,7 +756,7 @@ function renderMonthly(){
   const balMap={};
   sortedAsc.forEach(m=>{balMap[m.key]=INITIAL_CAPITAL+runningPnl;runningPnl+=m.pnl;});
   const body=document.getElementById('monthly-body');
-  if(!months.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
+  if(!months.length){body.innerHTML='<tr><td colspan="8" class="empty">Sin datos.</td></tr>';return;}
   body.innerHTML=months.map(m=>{
     const pc=m.pnl>0?'pos':m.pnl<0?'neg':'neu';
     const wr=m.count?Math.round(m.wins/m.count*100):0;
@@ -785,7 +801,7 @@ function renderMonthly(){
 
 function renderDaily(){
   const closes=T.filter(t=>t.tradeType==='close'&&t.pnl!==null&&!isNaN(t.pnl));
-  if(!closes.length){document.getElementById('daily-body').innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
+  if(!closes.length){document.getElementById('daily-body').innerHTML='<tr><td colspan="8" class="empty">Sin datos.</td></tr>';return;}
   const map={};
   closes.forEach(t=>{
     const k=pts(t.ts).toISOString().slice(0,10);
@@ -1056,7 +1072,7 @@ function renderWeekly(){
   let runPnl=0;const balMap={};
   sortedAsc.forEach(w=>{balMap[w]=INITIAL_CAPITAL+runPnl;runPnl+=(map[w]?.pnl||0)+(fundMap[w]||0);});
   const body=document.getElementById('weekly-body');
-  if(!weeks.length){body.innerHTML='<tr><td colspan="7" class="empty">Sin datos.</td></tr>';return;}
+  if(!weeks.length){body.innerHTML='<tr><td colspan="8" class="empty">Sin datos.</td></tr>';return;}
   body.innerHTML=weeks.map(w=>{
     const d=map[w]||{pnl:0,count:0,wins:0};
     const fund=fundMap[w]||0;const total=d.pnl+fund;
@@ -1090,5 +1106,22 @@ function switchAccount(n){
   renderMovimientos();
   fetchAll();
 }
+
+
+// ── RESERVA % ──
+function getReservaPct(){
+  return parseFloat(localStorage.getItem('lt-reserva-pct')||'25');
+}
+function saveReservaPct(){
+  const val=parseFloat(document.getElementById('reserva-pct').value);
+  if(isNaN(val)||val<0||val>100){alert('Introduce un % entre 0 y 100.');return;}
+  localStorage.setItem('lt-reserva-pct',val.toString());
+  document.getElementById('reserva-status').textContent='✓ Guardado: '+val+'%';
+  setTimeout(()=>document.getElementById('reserva-status').textContent='',2000);
+}
+document.addEventListener('DOMContentLoaded',function(){
+  const el=document.getElementById('reserva-pct');
+  if(el) el.value=getReservaPct();
+});
 
 </script>
